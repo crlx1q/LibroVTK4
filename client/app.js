@@ -7,7 +7,10 @@ const state = {
   catalogLimit: 8,
   catalogSearch: "",
   catalogGenre: "",
+  catalogCategory: "",
+  catalogSort: "",
   genres: [],
+  categories: [],
   bookScan: null,
   studentScan: null,
   currentBookDetail: null
@@ -43,6 +46,8 @@ const updateThemeIcon = () => {
   }
 };
 
+const isMobileLayout = () => window.matchMedia("(max-width: 980px)").matches;
+
 const toast = (message, type = "info") => {
   elements.toast.textContent = message;
   elements.toast.className = "toast show " + type;
@@ -59,15 +64,27 @@ const setActiveView = (name) => {
 };
 
 const closeMenu = () => {
-  elements.menu.classList.add("hidden");
-  elements.overlay.classList.add("hidden");
-  document.body.style.overflow = "";
+  if (isMobileLayout()) {
+    elements.menu.classList.add("hidden");
+    elements.overlay.classList.add("hidden");
+    document.body.style.overflow = "";
+  } else {
+    elements.menu.classList.remove("hidden");
+    elements.overlay.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
 };
 
 const openMenu = () => {
-  elements.menu.classList.remove("hidden");
-  elements.overlay.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
+  if (isMobileLayout()) {
+    elements.menu.classList.remove("hidden");
+    elements.overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  } else {
+    elements.menu.classList.remove("hidden");
+    elements.overlay.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
 };
 
 const setAuthState = (user) => {
@@ -117,6 +134,7 @@ const setAuthState = (user) => {
     setActiveView("admin-users");
     loadUsers();
     loadAdminStats();
+    loadAdminShelves();
     loadAdminLoans();
   }
   updateNavVisibility();
@@ -219,17 +237,28 @@ const loadCurrentUser = async () => {
 const renderCatalog = (items) => {
   const container = document.querySelector("[data-list='catalog']");
   container.innerHTML = "";
-  items.forEach((book) => {
+  const sorted = [...items].sort((a, b) => {
+    const aAvailable = Number(a.availableCopies || 0) > 0 ? 0 : 1;
+    const bAvailable = Number(b.availableCopies || 0) > 0 ? 0 : 1;
+    if (aAvailable !== bAvailable) return aAvailable - bAvailable;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+  sorted.forEach((book) => {
+    const availableCount = Number(book.availableCopies || 0);
+    const badgeClass = availableCount > 0 ? "badge available" : "badge unavailable";
+    const badgeText = availableCount > 0 ? `В наличии: ${availableCount}` : "Нет в наличии";
+    const unavailableClass = availableCount > 0 ? "" : " unavailable";
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = `card${unavailableClass}`;
     card.innerHTML = `
-      <img src="${book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${book.title}">
-      <div class="card-title">${book.title}</div>
+      <img src="${book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${book.title}" data-action="details" data-id="${book.id}">
+      <div class="card-title" data-action="details" data-id="${book.id}">${book.title}</div>
       <div class="card-meta">${book.author} · ${book.genre}</div>
-      <div class="badge">${book.status}</div>
+      <div class="${badgeClass}">${badgeText}</div>
       <div class="card-actions">
         <button class="secondary-button" data-action="details" data-id="${book.id}">Подробнее</button>
-        <button class="primary-button" data-action="favorite" data-id="${book.id}">В избранное</button>
+        <button class="primary-button" data-action="take-book" data-id="${book.id}" ${availableCount > 0 ? "" : "disabled"}>Взять</button>
+        <button class="secondary-button" data-action="favorite" data-id="${book.id}">В избранное</button>
       </div>
     `;
     container.appendChild(card);
@@ -262,14 +291,24 @@ const renderFavorites = (items) => {
     container.textContent = "Нет избранных книг";
     return;
   }
-  items.forEach((fav) => {
+  const sorted = [...items].sort((a, b) => {
+    const aAvailable = Number(a.book?.availableCopies || 0) > 0 ? 0 : 1;
+    const bAvailable = Number(b.book?.availableCopies || 0) > 0 ? 0 : 1;
+    if (aAvailable !== bAvailable) return aAvailable - bAvailable;
+    return (a.book?.title || "").localeCompare(b.book?.title || "");
+  });
+  sorted.forEach((fav) => {
     if (!fav.book) return;
+    const availableCount = Number(fav.book.availableCopies || 0);
+    const badgeClass = availableCount > 0 ? "badge available" : "badge unavailable";
+    const badgeText = availableCount > 0 ? `В наличии: ${availableCount}` : "Нет в наличии";
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = `card${availableCount > 0 ? "" : " unavailable"}`;
     card.innerHTML = `
-      <img src="${fav.book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${fav.book.title}">
-      <div class="card-title">${fav.book.title}</div>
+      <img src="${fav.book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${fav.book.title}" data-action="details" data-id="${fav.book.id}">
+      <div class="card-title" data-action="details" data-id="${fav.book.id}">${fav.book.title}</div>
       <div class="card-meta">${fav.book.author}</div>
+      <div class="${badgeClass}">${badgeText}</div>
       <div class="card-actions">
         <button class="secondary-button" data-action="remove-favorite" data-id="${fav.book.id}">Удалить</button>
       </div>
@@ -362,13 +401,54 @@ const renderUsers = (items) => {
 const renderAdminLoans = (items) => {
   const container = document.querySelector("[data-list='admin-loans']");
   container.innerHTML = "";
+  const summary = document.querySelector("[data-slot='admin-loans-summary']");
+  const statusCounts = items.reduce(
+    (acc, loan) => {
+      const status = loan.status || "активна";
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    },
+    { всего: items.length }
+  );
+  if (summary) {
+    summary.innerHTML = `
+      <div class="admin-loan-stat">
+        <div class="stat-label">Всего выдач</div>
+        <div class="stat-value">${statusCounts["всего"] || 0}</div>
+      </div>
+      <div class="admin-loan-stat">
+        <div class="stat-label">Активные</div>
+        <div class="stat-value">${statusCounts["активна"] || 0}</div>
+      </div>
+      <div class="admin-loan-stat">
+        <div class="stat-label">Просроченные</div>
+        <div class="stat-value">${statusCounts["просрочено"] || 0}</div>
+      </div>
+      <div class="admin-loan-stat">
+        <div class="stat-label">Возвращенные</div>
+        <div class="stat-value">${statusCounts["возвращена"] || 0}</div>
+      </div>
+    `;
+  }
   items.forEach((loan) => {
+    let statusClass = "badge";
+    if (loan.status === "просрочено") {
+      statusClass = "badge unavailable";
+    } else if (loan.status === "активна") {
+      statusClass = "badge available";
+    }
     const row = document.createElement("div");
     row.className = "table-row";
     row.innerHTML = `
-      <div>${loan.bookTitle}</div>
-      <div>${loan.studentName}</div>
-      <div>${loan.status}</div>
+      <div>
+        <strong>${loan.bookTitle}</strong>
+        <div class="card-meta">${loan.bookAuthor || ""}</div>
+      </div>
+      <div>
+        <strong>${loan.studentName}</strong>
+        <div class="card-meta">${loan.studentEmail || ""}</div>
+      </div>
+      <div><span class="${statusClass}">${loan.status}</span></div>
       <div>${new Date(loan.issueDate).toLocaleDateString()}</div>
       <div>${loan.returnDate ? new Date(loan.returnDate).toLocaleDateString() : "Не возвращена"}</div>
     `;
@@ -530,7 +610,9 @@ const loadCatalog = async () => {
     page: state.catalogPage,
     limit: state.catalogLimit,
     search: state.catalogSearch,
-    genre: state.catalogGenre
+    genre: state.catalogGenre,
+    category: state.catalogCategory,
+    sort: state.catalogSort
   });
   const response = await fetchWithAuth(`/api/student/catalog?${params.toString()}`);
   if (!response.ok) return;
@@ -538,17 +620,23 @@ const loadCatalog = async () => {
   state.catalogTotal = data.total;
   renderCatalog(data.items);
   document.querySelector("[data-text='catalog-page']").textContent = String(state.catalogPage);
-  if (!state.genres.length) {
-    const genres = new Set();
-    data.items.forEach((item) => genres.add(item.genre));
-    state.genres = [...genres];
-    const select = document.querySelector("[data-input='catalog-genre']");
-    state.genres.forEach((genre) => {
+  const addOptions = (select, values, stateList) => {
+    values.forEach((value) => {
+      if (!value || stateList.includes(value)) return;
+      stateList.push(value);
       const option = document.createElement("option");
-      option.value = genre;
-      option.textContent = genre;
+      option.value = value;
+      option.textContent = value;
       select.appendChild(option);
     });
+  };
+  const genreSelect = document.querySelector("[data-input='catalog-genre']");
+  const categorySelect = document.querySelector("[data-input='catalog-category']");
+  if (genreSelect) {
+    addOptions(genreSelect, data.items.map((item) => item.genre), state.genres);
+  }
+  if (categorySelect) {
+    addOptions(categorySelect, data.items.map((item) => item.category), state.categories);
   }
 };
 
@@ -607,11 +695,79 @@ const loadAdminStats = async () => {
   renderStats(data);
 };
 
+const loadAdminShelves = async () => {
+  const response = await fetchWithAuth("/api/librarian/books");
+  if (!response.ok) return;
+  const data = await response.json();
+  renderAdminShelves(data);
+};
+
 const loadAdminLoans = async () => {
   const response = await fetchWithAuth("/api/admin/loans");
   if (!response.ok) return;
   const data = await response.json();
   renderAdminLoans(data);
+};
+
+const renderAdminShelves = (books) => {
+  const container = document.querySelector("[data-list='shelf-map']");
+  if (!container) return;
+  if (!books.length) {
+    container.innerHTML = '<div class="no-data">Нет данных о книгах</div>';
+    return;
+  }
+  const locations = books
+    .map((book) => {
+      const rowMatch = book.location?.match(/ряд\s*(\d+)/i);
+      const shelfMatch = book.location?.match(/полка\s*(\d+)/i);
+      const row = rowMatch ? Number(rowMatch[1]) : 1;
+      const shelf = shelfMatch ? Number(shelfMatch[1]) : 1;
+      return { row, shelf, title: book.title, author: book.author };
+    })
+    .filter((item) => Number.isFinite(item.row) && Number.isFinite(item.shelf));
+  const maxRow = Math.max(4, ...locations.map((loc) => loc.row));
+  const maxShelf = Math.max(8, ...locations.map((loc) => loc.shelf));
+  const map = new Map();
+  locations.forEach((loc) => {
+    const key = `${loc.row}-${loc.shelf}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(loc);
+  });
+  const grid = document.createElement("div");
+  grid.className = "shelf-grid";
+  grid.style.gridTemplateColumns = `repeat(${maxShelf}, minmax(44px, 1fr))`;
+  for (let row = 1; row <= maxRow; row++) {
+    for (let shelf = 1; shelf <= maxShelf; shelf++) {
+      const key = `${row}-${shelf}`;
+      const entries = map.get(key) || [];
+      const cell = document.createElement("div");
+      cell.className = `shelf-cell${entries.length ? "" : " empty"}`;
+      cell.innerHTML = `
+        <div>${entries.length ? entries.length : "—"}</div>
+        <div class="shelf-meta">Ряд ${row}, Полка ${shelf}</div>
+        ${
+          entries.length
+            ? `<div class="shelf-tooltip">
+                <div class="shelf-tooltip-title">Книги на полке</div>
+                <div class="shelf-tooltip-list">
+                  ${entries
+                    .slice(0, 6)
+                    .map(
+                      (entry) =>
+                        `<div class="shelf-tooltip-item">${entry.title}${entry.author ? ` — ${entry.author}` : ""}</div>`
+                    )
+                    .join("")}
+                  ${entries.length > 6 ? `<div class="shelf-tooltip-item">и еще ${entries.length - 6}...</div>` : ""}
+                </div>
+              </div>`
+            : ""
+        }
+      `;
+      grid.appendChild(cell);
+    }
+  }
+  container.innerHTML = "";
+  container.appendChild(grid);
 };
 
 const openModal = (name) => {
@@ -866,6 +1022,20 @@ document.addEventListener("click", async (event) => {
     toast(data.message || "Добавлено в избранное");
     loadFavorites();
   }
+  if (name === "take-book") {
+    const bookId = action.dataset.id;
+    const response = await fetchWithAuth(`/api/student/books/${bookId}`);
+    if (!response.ok) {
+      toast("Не удалось получить данные книги", "error");
+      return;
+    }
+    const book = await response.json();
+    if ((book.availableCopies || 0) <= 0) {
+      toast("Книга сейчас недоступна", "info");
+      return;
+    }
+    toast("Запрос на выдачу отправлен библиотекарю", "success");
+  }
   if (name === "remove-favorite") {
     const bookId = action.dataset.id;
     const response = await fetchWithAuth(`/api/student/favorites/${bookId}`, { method: "DELETE" });
@@ -907,6 +1077,10 @@ document.addEventListener("click", async (event) => {
       availIndicator.className = "availability-indicator unavailable";
       availIndicator.querySelector("i").className = "fas fa-times-circle";
     }
+    const takeBtn = document.querySelector("[data-action='take-book-detail']");
+    if (takeBtn) {
+      takeBtn.disabled = (book.availableCopies || 0) <= 0;
+    }
     
     const studentShelf = document.querySelector("[data-slot='student-bookshelf']");
     let row = 1, shelf = 1;
@@ -947,6 +1121,14 @@ document.addEventListener("click", async (event) => {
     if (response.offline) return;
     const data = await response.json();
     toast(data.message || "Добавлено в избранное", "success");
+  }
+  if (name === "take-book-detail") {
+    if (!state.currentBookDetail) return;
+    if ((state.currentBookDetail.availableCopies || 0) <= 0) {
+      toast("Книга сейчас недоступна", "info");
+      return;
+    }
+    toast("Запрос на выдачу отправлен библиотекарю", "success");
   }
   if (name === "open-book-form") {
     document.querySelector("[data-form='book']").reset();
@@ -1090,6 +1272,7 @@ document.addEventListener("click", async (event) => {
   }
   if (name === "refresh-stats") {
     loadAdminStats();
+    loadAdminShelves();
   }
   if (name === "toggle-block") {
     const id = action.dataset.id;
@@ -1272,6 +1455,20 @@ document.addEventListener("paste", (e) => {
 
 document.querySelector("[data-input='catalog-genre']").addEventListener("change", (event) => {
   state.catalogGenre = event.target.value;
+  state.catalogPage = 1;
+  loadCatalog();
+});
+
+document.querySelector("[data-input='catalog-category']").addEventListener("change", (event) => {
+  state.catalogCategory = event.target.value;
+  state.catalogPage = 1;
+  loadCatalog();
+});
+
+document.querySelector("[data-input='catalog-sort']").addEventListener("change", (event) => {
+  state.catalogSort = event.target.value;
+  state.catalogPage = 1;
+  loadCatalog();
 });
 
 const updateLocationPreview = () => {
@@ -1321,3 +1518,17 @@ if ("serviceWorker" in navigator) {
 
 initTheme();
 loadCurrentUser();
+
+const updateCatalogLimit = () => {
+  const nextLimit = window.innerWidth <= 640 ? 4 : 8;
+  if (state.catalogLimit !== nextLimit) {
+    state.catalogLimit = nextLimit;
+    state.catalogPage = 1;
+    if (state.user && state.user.role === "student") {
+      loadCatalog();
+    }
+  }
+};
+
+updateCatalogLimit();
+window.addEventListener("resize", updateCatalogLimit);

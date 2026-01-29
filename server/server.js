@@ -508,8 +508,8 @@ app.post("/api/librarian/loans/return/:id", authRequired, roleRequired(["librari
 
 app.get("/api/student/catalog", authRequired, roleRequired(["student", "admin", "librarian"]), (req, res) => {
   const data = loadData();
-  const { search, genre, page = 1, limit = 12 } = req.query;
-  let items = data.books;
+  const { search, genre, category, sort, page = 1, limit = 12 } = req.query;
+  let items = [...data.books];
   if (search) {
     const target = String(search).toLowerCase();
     items = items.filter((book) => book.title.toLowerCase().includes(target) || book.author.toLowerCase().includes(target));
@@ -517,6 +517,21 @@ app.get("/api/student/catalog", authRequired, roleRequired(["student", "admin", 
   if (genre) {
     items = items.filter((book) => book.genre === genre);
   }
+  if (category) {
+    items = items.filter((book) => book.category === category);
+  }
+  items.sort((a, b) => {
+    const aAvailable = Number(a.availableCopies || 0) > 0 ? 0 : 1;
+    const bAvailable = Number(b.availableCopies || 0) > 0 ? 0 : 1;
+    if (aAvailable !== bAvailable) return aAvailable - bAvailable;
+    if (sort === "category-asc" || sort === "category-desc") {
+      const order = sort === "category-asc" ? 1 : -1;
+      const categoryCompare = (a.category || "").localeCompare(b.category || "", "ru");
+      if (categoryCompare !== 0) return categoryCompare * order;
+      return (a.title || "").localeCompare(b.title || "", "ru") * order;
+    }
+    return (a.title || "").localeCompare(b.title || "", "ru");
+  });
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
   const total = items.length;
