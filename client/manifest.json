@@ -1,0 +1,20 @@
+{
+  "name": "Библиотека ВТК",
+  "short_name": "ВТК",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "rgb(236, 240, 248)",
+  "theme_color": "rgb(37, 99, 235)",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
