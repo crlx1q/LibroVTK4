@@ -11,6 +11,10 @@
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body class="theme-light">
+  <div class="offline-banner hidden" data-banner="offline">
+    <i class="fas fa-wifi"></i>
+    <span>Оффлайн режим: показываем последние данные</span>
+  </div>
   <div class="app-shell">
     <header class="top-bar">
       <div class="brand">
@@ -316,6 +320,13 @@
                 </div>
               </div>
               <div class="form-group">
+                <label>Номер телефона</label>
+                <div class="input-icon">
+                  <i class="fas fa-phone"></i>
+                  <input type="tel" name="phone" placeholder="+7 900 000-00-00" required>
+                </div>
+              </div>
+              <div class="form-group">
                 <label>Группа или класс</label>
                 <div class="input-icon">
                   <i class="fas fa-users"></i>
@@ -441,6 +452,25 @@
         <section class="view" data-section="student-qr">
           <div class="section-header">
             <h2>Мой QR для выдачи</h2>
+          </div>
+          <div class="profile-card">
+            <div class="profile-avatar" data-slot="profile-avatar">
+              <i class="fas fa-user-graduate"></i>
+            </div>
+            <div class="profile-details">
+              <div class="profile-name" data-text="profile-name">—</div>
+              <div class="profile-meta">
+                <span data-text="profile-email">—</span>
+                <span data-text="profile-phone">—</span>
+                <span data-text="profile-group">—</span>
+              </div>
+              <div class="profile-actions">
+                <input type="file" accept="image/*" data-input="avatar-file" hidden>
+                <button class="secondary-button" data-action="upload-avatar">
+                  <i class="fas fa-camera"></i> Загрузить аватар
+                </button>
+              </div>
+            </div>
           </div>
           <div class="qr-panel">
             <div class="qr-image" data-slot="student-qr"></div>
@@ -574,6 +604,15 @@
         <section class="view" data-section="librarian-issue">
           <div class="section-header">
             <h2>Выдача по QR</h2>
+          </div>
+          <div class="requests-panel">
+            <div class="section-subheader">
+              <h3><i class="fas fa-bell"></i> Запросы на выдачу</h3>
+              <button class="secondary-button" data-action="requests-refresh">
+                <i class="fas fa-sync-alt"></i> Обновить
+              </button>
+            </div>
+            <div class="list" data-list="librarian-requests"></div>
           </div>
           <div class="scanner-section">
             <div class="scanner-main">

@@ -24,7 +24,8 @@ const elements = {
   overlay: document.querySelector("[data-overlay]"),
   authModal: document.querySelector("[data-modal='auth']"),
   burgerBtn: document.querySelector(".burger-btn"),
-  headerLoginBtn: document.querySelector(".header-login-btn")
+  headerLoginBtn: document.querySelector(".header-login-btn"),
+  offlineBanner: document.querySelector("[data-banner='offline']")
 };
 
 const initTheme = () => {
@@ -47,6 +48,12 @@ const updateThemeIcon = () => {
 };
 
 const isMobileLayout = () => window.matchMedia("(max-width: 980px)").matches;
+
+const updateOfflineBanner = () => {
+  if (!elements.offlineBanner) return;
+  const offline = !navigator.onLine;
+  elements.offlineBanner.classList.toggle("hidden", !offline);
+};
 
 const toast = (message, type = "info") => {
   elements.toast.textContent = message;
@@ -123,11 +130,13 @@ const setAuthState = (user) => {
     loadStudentLoans();
     loadFavorites();
     loadStudentQr();
+    loadStudentProfile();
   }
   if (user.role === "librarian") {
     setActiveView("librarian-books");
     loadBooks();
     loadLibrarianLoans();
+    loadLibrarianRequests();
     initScanner();
   }
   if (user.role === "admin") {
@@ -234,6 +243,27 @@ const loadCurrentUser = async () => {
   setAuthState(user);
 };
 
+const getAvailabilityMeta = (available, total) => {
+  const availableCount = Math.max(0, Number(available) || 0);
+  const totalCount = Math.max(1, Number(total) || 0);
+  const ratio = totalCount > 0 ? availableCount / totalCount : 0;
+  let badgeClass = "badge available";
+  if (availableCount <= 0) {
+    badgeClass = "badge unavailable";
+  } else if (ratio <= 0.2) {
+    badgeClass = "badge low";
+  } else if (ratio <= 0.5) {
+    badgeClass = "badge medium";
+  }
+  return {
+    availableCount,
+    totalCount,
+    badgeClass,
+    badgeText: `${availableCount} из ${totalCount} доступно`,
+    cardUnavailable: availableCount <= 0
+  };
+};
+
 const renderCatalog = (items) => {
   const container = document.querySelector("[data-list='catalog']");
   container.innerHTML = "";
@@ -244,20 +274,18 @@ const renderCatalog = (items) => {
     return (a.title || "").localeCompare(b.title || "");
   });
   sorted.forEach((book) => {
-    const availableCount = Number(book.availableCopies || 0);
-    const badgeClass = availableCount > 0 ? "badge available" : "badge unavailable";
-    const badgeText = availableCount > 0 ? `В наличии: ${availableCount}` : "Нет в наличии";
-    const unavailableClass = availableCount > 0 ? "" : " unavailable";
+    const availability = getAvailabilityMeta(book.availableCopies, book.totalCopies);
+    const unavailableClass = availability.cardUnavailable ? " unavailable" : "";
     const card = document.createElement("div");
     card.className = `card${unavailableClass}`;
     card.innerHTML = `
       <img src="${book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${book.title}" data-action="details" data-id="${book.id}">
       <div class="card-title" data-action="details" data-id="${book.id}">${book.title}</div>
       <div class="card-meta">${book.author} · ${book.genre}</div>
-      <div class="${badgeClass}">${badgeText}</div>
+      <div class="${availability.badgeClass}">${availability.badgeText}</div>
       <div class="card-actions">
         <button class="secondary-button" data-action="details" data-id="${book.id}">Подробнее</button>
-        <button class="primary-button" data-action="take-book" data-id="${book.id}" ${availableCount > 0 ? "" : "disabled"}>Взять</button>
+        <button class="primary-button" data-action="take-book" data-id="${book.id}" ${availability.availableCount > 0 ? "" : "disabled"}>Взять</button>
         <button class="secondary-button" data-action="favorite" data-id="${book.id}">В избранное</button>
       </div>
     `;
@@ -299,17 +327,16 @@ const renderFavorites = (items) => {
   });
   sorted.forEach((fav) => {
     if (!fav.book) return;
-    const availableCount = Number(fav.book.availableCopies || 0);
-    const badgeClass = availableCount > 0 ? "badge available" : "badge unavailable";
-    const badgeText = availableCount > 0 ? `В наличии: ${availableCount}` : "Нет в наличии";
+    const availability = getAvailabilityMeta(fav.book.availableCopies, fav.book.totalCopies);
     const card = document.createElement("div");
-    card.className = `card${availableCount > 0 ? "" : " unavailable"}`;
+    card.className = `card${availability.cardUnavailable ? " unavailable" : ""}`;
     card.innerHTML = `
       <img src="${fav.book.cover || "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=400&q=80"}" alt="${fav.book.title}" data-action="details" data-id="${fav.book.id}">
       <div class="card-title" data-action="details" data-id="${fav.book.id}">${fav.book.title}</div>
       <div class="card-meta">${fav.book.author}</div>
-      <div class="${badgeClass}">${badgeText}</div>
+      <div class="${availability.badgeClass}">${availability.badgeText}</div>
       <div class="card-actions">
+        <button class="secondary-button" data-action="details" data-id="${fav.book.id}">Подробнее</button>
         <button class="secondary-button" data-action="remove-favorite" data-id="${fav.book.id}">Удалить</button>
       </div>
     `;
@@ -354,6 +381,41 @@ const renderLibrarianLoans = (items) => {
       </div>
     `;
     container.appendChild(row);
+  });
+};
+
+const renderLibrarianRequests = (items) => {
+  const container = document.querySelector("[data-list='librarian-requests']");
+  if (!container) return;
+  container.innerHTML = "";
+  const pending = items.filter((request) => request.status === "pending");
+  if (!pending.length) {
+    container.innerHTML = '<div class="no-data">Запросов нет</div>';
+    return;
+  }
+  pending.forEach((request) => {
+    const card = document.createElement("div");
+    card.className = "request-card";
+    card.innerHTML = `
+      <div class="request-main">
+        <div class="request-title">${request.bookTitle || "Без названия"}</div>
+        <div class="request-meta">
+          <span><i class="fas fa-user"></i> ${request.studentName || "Студент"}</span>
+          ${request.studentGroup ? `<span><i class="fas fa-users"></i> ${request.studentGroup}</span>` : ""}
+          ${request.bookLocation ? `<span><i class="fas fa-location-dot"></i> ${request.bookLocation}</span>` : ""}
+        </div>
+        <div class="request-meta">
+          <span><i class="fas fa-envelope"></i> ${request.studentEmail || "—"}</span>
+          <span><i class="fas fa-book"></i> ${request.availableCopies || 0} из ${request.totalCopies || 0} доступно</span>
+        </div>
+      </div>
+      <div class="request-actions">
+        <button class="secondary-button" data-action="resolve-request" data-id="${request.id}">
+          <i class="fas fa-check"></i> Обработано
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
   });
 };
 
@@ -654,6 +716,28 @@ const loadFavorites = async () => {
   renderFavorites(data);
 };
 
+const loadStudentProfile = async () => {
+  const response = await fetchWithAuth("/api/student/me");
+  if (!response.ok) return;
+  const user = await response.json();
+  const avatarSlot = document.querySelector("[data-slot='profile-avatar']");
+  const nameSlot = document.querySelector("[data-text='profile-name']");
+  const emailSlot = document.querySelector("[data-text='profile-email']");
+  const phoneSlot = document.querySelector("[data-text='profile-phone']");
+  const groupSlot = document.querySelector("[data-text='profile-group']");
+  if (nameSlot) nameSlot.textContent = user.fullName || "—";
+  if (emailSlot) emailSlot.textContent = user.email || "—";
+  if (phoneSlot) phoneSlot.textContent = user.phone || "—";
+  if (groupSlot) groupSlot.textContent = user.group ? `Группа: ${user.group}` : "Группа не указана";
+  if (avatarSlot) {
+    if (user.avatarUrl) {
+      avatarSlot.innerHTML = `<img src="${user.avatarUrl}" alt="${user.fullName}">`;
+    } else {
+      avatarSlot.innerHTML = '<i class="fas fa-user-graduate"></i>';
+    }
+  }
+};
+
 const loadStudentQr = async () => {
   const response = await fetchWithAuth("/api/student/qr");
   if (!response.ok) return;
@@ -674,6 +758,13 @@ const loadLibrarianLoans = async () => {
   if (!response.ok) return;
   const data = await response.json();
   renderLibrarianLoans(data);
+};
+
+const loadLibrarianRequests = async () => {
+  const response = await fetchWithAuth("/api/librarian/requests");
+  if (!response.ok) return;
+  const data = await response.json();
+  renderLibrarianRequests(data);
 };
 
 const loadUsers = async () => {
@@ -720,19 +811,27 @@ const renderAdminShelves = (books) => {
     .map((book) => {
       const rowMatch = book.location?.match(/ряд\s*(\d+)/i);
       const shelfMatch = book.location?.match(/полка\s*(\d+)/i);
-      const row = rowMatch ? Number(rowMatch[1]) : 1;
-      const shelf = shelfMatch ? Number(shelfMatch[1]) : 1;
-      return { row, shelf, title: book.title, author: book.author };
+      const row = rowMatch ? Number(rowMatch[1]) : null;
+      const shelf = shelfMatch ? Number(shelfMatch[1]) : null;
+      return { row, shelf, title: book.title, author: book.author, location: book.location || "" };
     })
     .filter((item) => Number.isFinite(item.row) && Number.isFinite(item.shelf));
-  const maxRow = Math.max(4, ...locations.map((loc) => loc.row));
-  const maxShelf = Math.max(8, ...locations.map((loc) => loc.shelf));
+  const unlocated = books.filter((book) => !book.location);
+  const maxRow = Math.max(4, ...locations.map((loc) => loc.row || 0));
+  const maxShelf = Math.max(8, ...locations.map((loc) => loc.shelf || 0));
   const map = new Map();
   locations.forEach((loc) => {
     const key = `${loc.row}-${loc.shelf}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(loc);
   });
+  const summary = document.createElement("div");
+  summary.className = "shelf-summary";
+  summary.innerHTML = `
+    <div class="shelf-summary-item"><strong>${books.length}</strong> книг в фонде</div>
+    <div class="shelf-summary-item"><strong>${locations.length}</strong> с расположением</div>
+    <div class="shelf-summary-item"><strong>${unlocated.length}</strong> без полки</div>
+  `;
   const grid = document.createElement("div");
   grid.className = "shelf-grid";
   grid.style.gridTemplateColumns = `repeat(${maxShelf}, minmax(44px, 1fr))`;
@@ -766,8 +865,22 @@ const renderAdminShelves = (books) => {
       grid.appendChild(cell);
     }
   }
+  const unlocatedList = document.createElement("div");
+  unlocatedList.className = "shelf-unlocated";
+  unlocatedList.innerHTML = unlocated.length
+    ? `<div class="shelf-unlocated-title">Книги без указанной полки</div>
+       <div class="shelf-unlocated-list">
+         ${unlocated
+           .slice(0, 6)
+           .map((book) => `<span>${book.title}${book.author ? ` — ${book.author}` : ""}</span>`)
+           .join("")}
+         ${unlocated.length > 6 ? `<span>и еще ${unlocated.length - 6}...</span>` : ""}
+       </div>`
+    : `<div class="shelf-unlocated-title">Все книги размещены на полках</div>`;
   container.innerHTML = "";
+  container.appendChild(summary);
   container.appendChild(grid);
+  container.appendChild(unlocatedList);
 };
 
 const openModal = (name) => {
@@ -1022,19 +1135,19 @@ document.addEventListener("click", async (event) => {
     toast(data.message || "Добавлено в избранное");
     loadFavorites();
   }
+  if (name === "requests-refresh") {
+    loadLibrarianRequests();
+  }
   if (name === "take-book") {
     const bookId = action.dataset.id;
-    const response = await fetchWithAuth(`/api/student/books/${bookId}`);
-    if (!response.ok) {
-      toast("Не удалось получить данные книги", "error");
-      return;
-    }
-    const book = await response.json();
-    if ((book.availableCopies || 0) <= 0) {
-      toast("Книга сейчас недоступна", "info");
-      return;
-    }
-    toast("Запрос на выдачу отправлен библиотекарю", "success");
+    const response = await fetchWithAuth("/api/student/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookId })
+    });
+    if (response.offline) return;
+    const data = await response.json();
+    toast(data.message || "Запрос отправлен библиотекарю", "success");
   }
   if (name === "remove-favorite") {
     const bookId = action.dataset.id;
@@ -1128,7 +1241,28 @@ document.addEventListener("click", async (event) => {
       toast("Книга сейчас недоступна", "info");
       return;
     }
-    toast("Запрос на выдачу отправлен библиотекарю", "success");
+    const response = await fetchWithAuth("/api/student/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookId: state.currentBookDetail.id })
+    });
+    if (response.offline) return;
+    const data = await response.json();
+    toast(data.message || "Запрос отправлен библиотекарю", "success");
+  }
+  if (name === "resolve-request") {
+    const requestId = action.dataset.id;
+    const response = await fetchWithAuth(`/api/librarian/requests/${requestId}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "processed" })
+    });
+    if (response.offline) return;
+    loadLibrarianRequests();
+  }
+  if (name === "upload-avatar") {
+    const input = document.querySelector("[data-input='avatar-file']");
+    if (input) input.click();
   }
   if (name === "open-book-form") {
     document.querySelector("[data-form='book']").reset();
@@ -1439,6 +1573,36 @@ if (fileInput) {
   });
 }
 
+const avatarInput = document.querySelector("[data-input='avatar-file']");
+if (avatarInput) {
+  avatarInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Выберите изображение", "error");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const response = await fetchWithAuth("/api/student/avatar", {
+      method: "POST",
+      body: formData
+    });
+    if (response.offline) return;
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      toast(data.message || "Не удалось загрузить аватар", "error");
+      return;
+    }
+    const data = await response.json();
+    const avatarSlot = document.querySelector("[data-slot='profile-avatar']");
+    if (avatarSlot) {
+      avatarSlot.innerHTML = `<img src="${data.url}" alt="Аватар">`;
+    }
+    toast("Аватар обновлен", "success");
+  });
+}
+
 document.addEventListener("paste", (e) => {
   const bookModal = document.querySelector("[data-modal='book-form']");
   if (!bookModal || bookModal.classList.contains("hidden")) return;
@@ -1508,7 +1672,11 @@ document.querySelector("[data-input='user-search']").addEventListener("input", (
 
 document.querySelector("[data-input='user-role']").addEventListener("change", () => loadUsers());
 
-window.addEventListener("online", processQueue);
+window.addEventListener("online", () => {
+  updateOfflineBanner();
+  processQueue();
+});
+window.addEventListener("offline", updateOfflineBanner);
 
 elements.overlay.addEventListener("click", closeMenu);
 
@@ -1518,6 +1686,7 @@ if ("serviceWorker" in navigator) {
 
 initTheme();
 loadCurrentUser();
+updateOfflineBanner();
 
 const updateCatalogLimit = () => {
   const nextLimit = window.innerWidth <= 640 ? 4 : 8;
