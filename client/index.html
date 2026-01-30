@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Библиотека ВТК</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="libro.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -14,7 +15,7 @@
     <header class="top-bar">
       <div class="brand">
         <span class="brand-icon">
-          <img src="icon-192.svg" alt="Логотип LibroVTK">
+          <img src="libro.png" alt="Логотип LibroVTK">
         </span>
         <div class="brand-text">
           <div class="brand-title">Библиотека ВТК</div>
@@ -85,23 +86,45 @@
               <div class="hero-visual">
                 <div class="hero-phone">
                   <div class="phone-screen">
-                    <div class="phone-header">
-                      <i class="fas fa-book-open"></i>
-                      <span>Libro</span>
+                    <div class="phone-header logo-inline">
+                      <img class="phone-logo" src="libro.png" alt="LibroVTK">
+                      <span>LibroVTK</span>
                     </div>
-                    <div class="phone-card">
-                      <div class="phone-book"></div>
-                      <div class="phone-lines">
-                        <div class="phone-line"></div>
-                        <div class="phone-line short"></div>
+                    <div class="phone-section-header">
+                      <div>
+                        <div class="phone-section-title">Каталог</div>
+                        <div class="phone-section-sub">Сегодня в библиотеке</div>
+                      </div>
+                      <span class="phone-dot"></span>
+                    </div>
+                    <div class="phone-card phone-card--book">
+                      <div class="phone-book-cover photo" style="background-image:url('https://kazneb.kz/FileStore/dataFiles/0a/36/1679475/content/bigcover.png?time=1769409214929&key=c700b43a816ed2777313257b5c3d5c24');"></div>
+                      <div class="phone-book-info">
+                        <div class="phone-book-title">Красная книга Казахстана</div>
+                        <div class="phone-book-author">Коллектив авторов</div>
+                        <div class="phone-book-status">
+                          <span class="phone-badge available">В наличии</span>
+                          <span class="phone-meta-text">4 из 7</span>
+                        </div>
                       </div>
                     </div>
-                    <div class="phone-card">
-                      <div class="phone-book"></div>
-                      <div class="phone-lines">
-                        <div class="phone-line"></div>
-                        <div class="phone-line short"></div>
+                    <div class="phone-card phone-card--book">
+                      <div class="phone-book-cover photo" style="background-image:url('https://mylibrary.kz/wp-content/uploads/2024/03/1.jpg');"></div>
+                      <div class="phone-book-info">
+                        <div class="phone-book-title">Слова назидания</div>
+                        <div class="phone-book-author">Абай Кунанбаев</div>
+                        <div class="phone-book-status">
+                          <span class="phone-badge due">До 20 фев</span>
+                          <span class="phone-meta-text">1 из 3</span>
+                        </div>
                       </div>
+                    </div>
+                    <div class="phone-card phone-card--summary">
+                      <div>
+                        <div class="phone-summary-title">Мои книги</div>
+                        <div class="phone-summary-meta">2 активных займа · 1 просрочка</div>
+                      </div>
+                      <div class="phone-cta">Продлить</div>
                     </div>
                   </div>
                 </div>
@@ -237,9 +260,9 @@
                   <a href="#">Политика конфиденциальности</a>
                   <a href="#">Условия использования</a>
                 </div>
-                <div class="footer-logo">
-                  <i class="fas fa-book-open"></i>
-                  <span>libro</span>
+                <div class="footer-logo logo-inline">
+                  <img src="libro.png" alt="LibroVTK">
+                  <span>LibroVTK</span>
                 </div>
               </div>
             </div>
@@ -252,7 +275,7 @@
             <button class="auth-close" data-action="close-auth"><i class="fas fa-times"></i></button>
             <div class="auth-header">
               <div class="auth-logo">
-                <img class="auth-logo-image" src="icon-192.svg" alt="LibroVTK">
+                <img class="auth-logo-image" src="libro.png" alt="LibroVTK">
               </div>
               <h2 class="auth-title" data-text="auth-title">Вход в систему</h2>
             </div>

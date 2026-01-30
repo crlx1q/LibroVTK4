@@ -5,8 +5,7 @@ const STATIC_ASSETS = [
   "/styles.css",
   "/app.js",
   "/manifest.json",
-  "/icon-192.svg",
-  "/icon-512.svg"
+  "/libro.png"
 ];
 
 const isMobile = () => {

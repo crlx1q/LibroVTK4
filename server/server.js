@@ -643,7 +643,7 @@ app.get("/api/health", (req, res) => {
 
 ensureAdmin()
   .then(async () => {
-    const port = process.env.PORT || 3001;
+    const port = process.env.PORT || 10216;
     const { networkInterfaces } = await import("os");
     const nets = networkInterfaces();
     let localIP = "127.0.0.1";
