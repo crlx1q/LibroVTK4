@@ -30,8 +30,12 @@ app.use(express.static(path.join(__dirname, "..", "client")));
 app.use(requestLogger);
 
 const assetsDir = path.join(__dirname, "..", "client", "assets", "covers");
+const avatarDir = path.join(__dirname, "..", "client", "assets", "avatars");
 if (!fs.existsSync(assetsDir)) {
   fs.mkdirSync(assetsDir, { recursive: true });
+}
+if (!fs.existsSync(avatarDir)) {
+  fs.mkdirSync(avatarDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
@@ -39,6 +43,15 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname) || ".jpg";
     const name = `cover_${Date.now()}_${crypto.randomBytes(4).toString("hex")}${ext}`;
+    cb(null, name);
+  }
+});
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, avatarDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    const name = `avatar_${Date.now()}_${crypto.randomBytes(4).toString("hex")}${ext}`;
     cb(null, name);
   }
 });
@@ -55,11 +68,24 @@ const upload = multer({
   }
 });
 
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only images allowed"), false);
+    }
+  }
+});
+
 const loadData = () => ({
   users: readJson("users.json", []),
   books: readJson("books.json", []),
   loans: readJson("loans.json", []),
-  favorites: readJson("favorites.json", [])
+  favorites: readJson("favorites.json", []),
+  requests: readJson("requests.json", [])
 });
 
 const saveData = (data) => {
@@ -67,6 +93,7 @@ const saveData = (data) => {
   writeJson("books.json", data.books);
   writeJson("loans.json", data.loans);
   writeJson("favorites.json", data.favorites);
+  writeJson("requests.json", data.requests);
 };
 
 const ensureAdmin = async () => {
@@ -83,7 +110,9 @@ const ensureAdmin = async () => {
       passwordHash,
       refreshTokens: [],
       blocked: false,
-      qrCodeDataUrl: ""
+      qrCodeDataUrl: "",
+      phone: "",
+      avatarUrl: ""
     });
     saveData(data);
   }
@@ -96,7 +125,9 @@ const sanitizeUser = (user) => ({
   role: user.role,
   group: user.group,
   registeredAt: user.registeredAt,
-  blocked: user.blocked
+  blocked: user.blocked,
+  phone: user.phone || "",
+  avatarUrl: user.avatarUrl || ""
 });
 
 const computeLoanStatus = (loan) => {
@@ -127,8 +158,8 @@ const updateBookAvailability = (book) => {
 
 app.post("/api/auth/register", async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, group } = req.body;
-  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password)) {
+  const { fullName, email, password, group, phone } = req.body;
+  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(phone)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
   if (data.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
@@ -141,11 +172,13 @@ app.post("/api/auth/register", async (req, res) => {
     email,
     role: "student",
     group: group || "",
+    phone: phone.trim(),
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
     blocked: false,
-    qrCodeDataUrl: ""
+    qrCodeDataUrl: "",
+    avatarUrl: ""
   };
   data.users.push(user);
   saveData(data);
@@ -223,7 +256,7 @@ app.get("/api/admin/users", authRequired, roleRequired(["admin"]), (req, res) =>
 
 app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, role, group } = req.body;
+  const { fullName, email, password, role, group, phone } = req.body;
   if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(role)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
@@ -237,11 +270,13 @@ app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, 
     email,
     role,
     group: group || "",
+    phone: phone || "",
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
     blocked: false,
-    qrCodeDataUrl: ""
+    qrCodeDataUrl: "",
+    avatarUrl: ""
   };
   data.users.push(user);
   saveData(data);
@@ -254,7 +289,7 @@ const updateUser = (req, res) => {
   if (!user) {
     return res.status(404).json({ message: "Пользователь не найден" });
   }
-  const { role, blocked, fullName, group } = req.body;
+  const { role, blocked, fullName, group, phone } = req.body;
   if (role) {
     user.role = role;
   }
@@ -266,6 +301,9 @@ const updateUser = (req, res) => {
   }
   if (group !== undefined) {
     user.group = group;
+  }
+  if (typeof phone === "string") {
+    user.phone = phone;
   }
   saveData(data);
   return res.json(sanitizeUser(user));
@@ -423,6 +461,21 @@ app.post("/api/librarian/upload-cover", authRequired, roleRequired(["librarian",
   return res.json({ url, filename: req.file.filename });
 });
 
+app.post("/api/student/avatar", authRequired, roleRequired(["student"]), uploadAvatar.single("avatar"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "Файл не загружен" });
+  }
+  const data = loadData();
+  const user = data.users.find((item) => item.id === req.user.id);
+  if (!user) {
+    return res.status(404).json({ message: "Пользователь не найден" });
+  }
+  const url = `/assets/avatars/${req.file.filename}`;
+  user.avatarUrl = url;
+  saveData(data);
+  return res.json({ url });
+});
+
 app.post("/api/librarian/books/:id/qr", authRequired, roleRequired(["librarian", "admin"]), async (req, res) => {
   const data = loadData();
   const book = data.books.find((item) => item.id === req.params.id);
@@ -549,6 +602,34 @@ app.get("/api/student/books/:id", authRequired, roleRequired(["student", "admin"
   return res.json(book);
 });
 
+app.post("/api/student/requests", authRequired, roleRequired(["student"]), (req, res) => {
+  const data = loadData();
+  const { bookId } = req.body;
+  if (!bookId) {
+    return res.status(400).json({ message: "Не указана книга" });
+  }
+  const book = data.books.find((item) => item.id === bookId);
+  if (!book) {
+    return res.status(404).json({ message: "Книга не найдена" });
+  }
+  const existing = data.requests.find(
+    (item) => item.bookId === bookId && item.studentId === req.user.id && item.status === "pending"
+  );
+  if (existing) {
+    return res.json({ message: "Запрос уже отправлен" });
+  }
+  const request = {
+    id: crypto.randomUUID(),
+    bookId,
+    studentId: req.user.id,
+    status: "pending",
+    createdAt: new Date().toISOString()
+  };
+  data.requests.push(request);
+  saveData(data);
+  return res.json({ message: "Запрос отправлен библиотекарю" });
+});
+
 app.get("/api/student/favorites", authRequired, roleRequired(["student"]), (req, res) => {
   const data = loadData();
   const favorites = data.favorites.filter((item) => item.studentId === req.user.id);
@@ -588,6 +669,38 @@ app.get("/api/student/loans", authRequired, roleRequired(["student"]), (req, res
     book: data.books.find((item) => item.id === loan.bookId) || null
   }));
   return res.json(loans);
+});
+
+app.get("/api/librarian/requests", authRequired, roleRequired(["librarian", "admin"]), (req, res) => {
+  const data = loadData();
+  const enriched = data.requests.map((request) => {
+    const student = data.users.find((user) => user.id === request.studentId) || {};
+    const book = data.books.find((item) => item.id === request.bookId) || {};
+    return {
+      ...request,
+      studentName: student.fullName || "",
+      studentGroup: student.group || "",
+      studentEmail: student.email || "",
+      bookTitle: book.title || "",
+      bookAuthor: book.author || "",
+      bookLocation: book.location || "",
+      availableCopies: book.availableCopies || 0,
+      totalCopies: book.totalCopies || 0
+    };
+  });
+  return res.json(enriched);
+});
+
+app.post("/api/librarian/requests/:id/resolve", authRequired, roleRequired(["librarian", "admin"]), (req, res) => {
+  const data = loadData();
+  const request = data.requests.find((item) => item.id === req.params.id);
+  if (!request) {
+    return res.status(404).json({ message: "Запрос не найден" });
+  }
+  request.status = req.body.status || "processed";
+  request.resolvedAt = new Date().toISOString();
+  saveData(data);
+  return res.json(request);
 });
 
 app.get("/api/student/me", authRequired, roleRequired(["student", "admin", "librarian"]), (req, res) => {
