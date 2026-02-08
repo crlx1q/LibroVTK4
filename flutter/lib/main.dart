@@ -21,6 +21,7 @@ class LibroApp extends StatelessWidget {
     final appState = context.watch<AppState>();
     return MaterialApp(
       title: 'Библиотека ВТК',
+      debugShowCheckedModeBanner: false,
       theme: _lightTheme,
       darkTheme: _darkTheme,
       themeMode: appState.themeMode,
@@ -42,7 +43,7 @@ final _lightTheme = ThemeData(
     foregroundColor: Color(0xFF0F172A),
     elevation: 0,
   ),
-  cardTheme: CardTheme(
+  cardTheme: CardThemeData(
     elevation: 0,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     color: Colors.white,
@@ -79,7 +80,7 @@ final _darkTheme = ThemeData(
     foregroundColor: Colors.white,
     elevation: 0,
   ),
-  cardTheme: CardTheme(
+  cardTheme: CardThemeData(
     elevation: 0,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     color: const Color(0xFF1E293B),

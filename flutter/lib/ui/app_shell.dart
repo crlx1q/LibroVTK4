@@ -38,13 +38,7 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            _LogoImage(baseUrl: appState.baseUrl, size: 36),
-            const SizedBox(width: 10),
-            const Text('Библиотека ВТК'),
-          ],
-        ),
+        title: _LogoImage(baseUrl: appState.baseUrl, size: 36),
         actions: [
           ConnectionChip(isOnline: appState.isOnline),
           IconButton(
@@ -81,14 +75,6 @@ class _AppShellState extends State<AppShell> {
                       .toList(),
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Сервер и настройки'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openSettings(context);
-                },
-              ),
             ],
           ),
         ),
@@ -106,12 +92,6 @@ class _AppShellState extends State<AppShell> {
   void _openAuth(BuildContext context, AuthMode mode) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => AuthScreen(initialMode: mode)),
-    );
-  }
-
-  void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
     );
   }
 
@@ -158,21 +138,9 @@ class ConnectionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isOnline ? Colors.green : Colors.red;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.circle, size: 8, color: color),
-          const SizedBox(width: 6),
-          Text(isOnline ? 'Онлайн' : 'Оффлайн'),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Icon(Icons.lightbulb, size: 24, color: color),
     );
   }
 }

@@ -39,8 +39,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        setState(() => _future = _load());
-        await _future;
+        final future = _load();
+        setState(() {
+          _future = future;
+        });
+        await future;
       },
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -53,10 +56,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
               labelText: 'Поиск по названию или автору',
               suffixIcon: IconButton(
                 icon: const Icon(Icons.search),
-                onPressed: () => setState(() => _future = _load()),
+                onPressed: () {
+                  final future = _load();
+                  setState(() {
+                    _future = future;
+                  });
+                },
               ),
             ),
-            onSubmitted: (_) => setState(() => _future = _load()),
+            onSubmitted: (_) {
+              final future = _load();
+              setState(() {
+                _future = future;
+              });
+            },
           ),
           const SizedBox(height: 16),
           FutureBuilder<Map<String, dynamic>>(
@@ -106,7 +119,7 @@ class _BookCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _CoverImage(url: book.cover),
+                _CoverImage(baseUrl: appState.baseUrl, url: book.cover),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -306,7 +319,7 @@ class FavoritesScreen extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
-                leading: _CoverImage(url: book.cover, size: 48),
+                leading: _CoverImage(baseUrl: appState.baseUrl, url: book.cover, size: 48),
                 title: Text(book.title),
                 subtitle: Text(book.author),
                 trailing: IconButton(
@@ -471,10 +484,11 @@ class _LibrarianBookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseUrl = context.read<AppState>().baseUrl;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        leading: _CoverImage(url: book.cover, size: 48),
+        leading: _CoverImage(baseUrl: baseUrl, url: book.cover, size: 48),
         title: Text(book.title),
         subtitle: Text('${book.author} · ${book.availableCopies}/${book.totalCopies}'),
         trailing: PopupMenuButton<String>(
@@ -1188,10 +1202,11 @@ class _LoanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd.MM.yyyy');
+    final baseUrl = context.read<AppState>().baseUrl;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        leading: _CoverImage(url: loan.book?.cover ?? '', size: 48),
+        leading: _CoverImage(baseUrl: baseUrl, url: loan.book?.cover ?? '', size: 48),
         title: Text(loan.book?.title ?? loan.bookTitle),
         subtitle: Text('До ${_formatDate(loan.dueDate, dateFormat)}'),
         trailing: Text(loan.status),
@@ -1206,20 +1221,31 @@ class _LoanCard extends StatelessWidget {
 }
 
 class _CoverImage extends StatelessWidget {
-  const _CoverImage({required this.url, this.size = 72});
+  const _CoverImage({required this.baseUrl, required this.url, this.size = 72});
 
+  final String baseUrl;
   final String url;
   final double size;
+
+  String get _fullUrl {
+    if (url.isEmpty) return '';
+    if (url.startsWith('http')) return url;
+    final base = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    final path = url.startsWith('/') ? url.substring(1) : url;
+    return '$base$path';
+  }
 
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty) {
       return _placeholder();
     }
+    final fullUrl = _fullUrl;
+    if (fullUrl.isEmpty) return _placeholder();
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Image.network(
-        url,
+        fullUrl,
         width: size,
         height: size * 1.3,
         fit: BoxFit.cover,

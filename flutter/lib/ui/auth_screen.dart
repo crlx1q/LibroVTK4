@@ -155,8 +155,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text('Сервер: ${appState.baseUrl}', style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),

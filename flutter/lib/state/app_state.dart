@@ -6,7 +6,7 @@ import '../models.dart';
 import '../services/api_client.dart';
 
 class AppState extends ChangeNotifier {
-  static const _defaultBaseUrl = 'http://10.0.2.2:3000';
+  static const _defaultBaseUrl = 'http://212.227.64.179:10216';
 
   bool _initialized = false;
   bool _isOnline = true;
