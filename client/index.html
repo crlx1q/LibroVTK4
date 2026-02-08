@@ -343,6 +343,13 @@
                 </div>
               </div>
               <div class="form-group">
+                <label>ИИН</label>
+                <div class="input-icon">
+                  <i class="fas fa-id-card"></i>
+                  <input type="text" name="iin" placeholder="12 цифр" minlength="12" maxlength="12" required>
+                </div>
+              </div>
+              <div class="form-group">
                 <label>Группа или класс</label>
                 <div class="input-icon">
                   <i class="fas fa-users"></i>
@@ -383,6 +390,9 @@
                 <option value="category-desc">Категории Я-А</option>
               </select>
               <button class="secondary-button" data-action="catalog-refresh">Обновить</button>
+              <button class="secondary-button" data-action="open-student-scanner">
+                <i class="fas fa-qrcode"></i> Сканировать QR
+              </button>
             </div>
           </div>
           <div class="grid" data-list="catalog"></div>
@@ -420,6 +430,7 @@
               <div class="profile-meta">
                 <span data-text="profile-email">—</span>
                 <span data-text="profile-phone">—</span>
+                <span data-text="profile-iin">—</span>
                 <span data-text="profile-group">—</span>
               </div>
               <div class="profile-actions">
@@ -614,6 +625,29 @@
               <span>Оформить выдачу</span>
             </button>
           </div>
+          <div class="manual-issue">
+            <div class="manual-issue-header">
+              <h3><i class="fas fa-pen-to-square"></i> Ручная выдача</h3>
+              <span>Выберите студента и книгу, если сканер недоступен</span>
+            </div>
+            <div class="manual-issue-form">
+              <div class="form-group">
+                <label>Студент</label>
+                <select data-input="manual-student">
+                  <option value="">Выберите студента</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Книга</label>
+                <select data-input="manual-book">
+                  <option value="">Выберите книгу</option>
+                </select>
+              </div>
+              <button class="secondary-button" data-action="issue-book-manual">
+                <i class="fas fa-check"></i> Оформить вручную
+              </button>
+            </div>
+          </div>
           <div class="issue-status" data-text="issue-status"></div>
         </section>
 
@@ -663,6 +697,14 @@
                 <div class="form-group">
                   <label>Группа или класс</label>
                   <input type="text" name="group" placeholder="ВТ-25-Т">
+                </div>
+                <div class="form-group">
+                  <label>Номер телефона</label>
+                  <input type="tel" name="phone" placeholder="+7 900 000-00-00">
+                </div>
+                <div class="form-group">
+                  <label>ИИН</label>
+                  <input type="text" name="iin" placeholder="12 цифр" minlength="12" maxlength="12">
                 </div>
                 <div class="form-group">
                   <label>Роль</label>
@@ -883,13 +925,35 @@
               <div class="step-content">
                 <div class="step-title">Продиктуйте ваши данные</div>
                 <div class="step-desc">
-                  ФИО или номер студенческого билета.<br>
+                  ФИО, номер телефона или ИИН.<br>
                   <span class="step-hint">Библиотекарь найдёт вас в системе вручную</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" data-modal="student-scanner">
+    <div class="modal-backdrop" data-action="close-student-scanner"></div>
+    <div class="modal-card scanner-modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-qrcode"></i> Сканер книги</h3>
+        <button class="modal-close" data-action="close-student-scanner"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="scanner-modal-content">
+        <div class="scanner-video-wrap">
+          <video class="scanner-video" autoplay muted playsinline data-video="student-scanner"></video>
+          <div class="scanner-overlay">
+            <div class="scanner-frame"></div>
+          </div>
+        </div>
+        <div class="scanner-hint">Наведите камеру на QR-код книги, чтобы открыть информацию.</div>
+        <button class="secondary-button" data-action="start-student-scanner">
+          <i class="fas fa-camera"></i> Запустить сканер
+        </button>
       </div>
     </div>
   </div>

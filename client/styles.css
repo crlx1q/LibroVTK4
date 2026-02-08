@@ -3164,6 +3164,70 @@ body.theme-dark .issue-form {
   white-space: nowrap;
 }
 
+.manual-issue {
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+body.theme-dark .manual-issue {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.manual-issue-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.manual-issue-header h3 {
+  margin: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-issue-header span {
+  color: rgba(100, 116, 139, 0.9);
+  font-size: 14px;
+}
+
+body.theme-dark .manual-issue-header span {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.manual-issue-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.scanner-modal {
+  max-width: 520px;
+}
+
+.scanner-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scanner-hint {
+  text-align: center;
+  color: rgba(100, 116, 139, 0.9);
+  font-size: 14px;
+}
+
+body.theme-dark .scanner-hint {
+  color: rgba(148, 163, 184, 0.9);
+}
+
 .issue-status {
   padding: 16px 24px;
   background: rgba(45, 212, 191, 0.1);
@@ -3195,6 +3259,10 @@ body.theme-dark .issue-form {
   .issue-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .manual-issue-form {
+    grid-template-columns: 1fr;
   }
 }
 
