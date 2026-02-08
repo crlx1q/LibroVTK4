@@ -301,6 +301,21 @@ body.theme-dark .side-nav {
   transition: all 0.2s ease;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background: rgb(239, 68, 68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  display: none;
+}
+
+.nav-badge.show {
+  display: inline-flex;
+}
+
 .nav-item:hover {
   background: rgba(37, 99, 235, 0.08);
 }
@@ -1357,6 +1372,7 @@ body.theme-dark .request-card {
 
 .request-title {
   font-weight: 700;
+  word-break: break-word;
 }
 
 .request-meta {
@@ -1370,6 +1386,76 @@ body.theme-dark .request-card {
 .request-actions {
   display: flex;
   gap: 8px;
+}
+
+.request-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.request-status.pending {
+  background: rgba(59, 130, 246, 0.12);
+  color: rgb(37, 99, 235);
+}
+
+.request-status.processed {
+  background: rgba(34, 197, 94, 0.12);
+  color: rgb(22, 163, 74);
+}
+
+.request-status.declined {
+  background: rgba(239, 68, 68, 0.12);
+  color: rgb(220, 38, 38);
+}
+
+.issue-request-btn {
+  margin-top: 16px;
+  width: 100%;
+  justify-content: center;
+}
+
+.request-issue-modal {
+  max-width: 520px;
+}
+
+.request-issue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.request-issue-info {
+  display: grid;
+  gap: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 14px;
+  border-radius: 12px;
+}
+
+body.theme-dark .request-issue-info {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.request-issue-info .info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.request-issue-info .info-row span {
+  color: rgba(100, 116, 139, 0.9);
+}
+
+.request-issue-info .info-row strong {
+  font-weight: 600;
+  text-align: right;
 }
 
 .issue-grid {
@@ -3259,6 +3345,13 @@ body.theme-dark .scanner-hint {
   .issue-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .result-value {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
   }
 
   .manual-issue-form {

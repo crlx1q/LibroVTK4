@@ -697,6 +697,39 @@ app.post("/api/student/requests", authRequired, roleRequired(["student"]), async
   return res.json({ message: "Запрос отправлен библиотекарю" });
 });
 
+app.get("/api/student/requests", authRequired, roleRequired(["student"]), (req, res) => {
+  const data = loadData();
+  const requests = data.requests
+    .filter((item) => item.studentId === req.user.id)
+    .map((request) => {
+      const book = data.books.find((item) => item.id === request.bookId) || {};
+      return {
+        ...request,
+        bookTitle: book.title || "",
+        bookAuthor: book.author || "",
+        bookLocation: book.location || "",
+        availableCopies: book.availableCopies || 0,
+        totalCopies: book.totalCopies || 0
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return res.json(requests);
+});
+
+app.delete("/api/student/requests/:id", authRequired, roleRequired(["student"]), (req, res) => {
+  const data = loadData();
+  const request = data.requests.find((item) => item.id === req.params.id);
+  if (!request || request.studentId !== req.user.id) {
+    return res.status(404).json({ message: "Запрос не найден" });
+  }
+  if (request.status !== "pending") {
+    return res.status(400).json({ message: "Нельзя отменить обработанный запрос" });
+  }
+  data.requests = data.requests.filter((item) => item.id !== req.params.id);
+  saveData(data);
+  return res.json({ message: "Запрос отменен" });
+});
+
 app.get("/api/student/favorites", authRequired, roleRequired(["student"]), (req, res) => {
   const data = loadData();
   const favorites = data.favorites.filter((item) => item.studentId === req.user.id);
@@ -766,6 +799,13 @@ app.post("/api/librarian/requests/:id/resolve", authRequired, roleRequired(["lib
   }
   request.status = req.body.status || "processed";
   request.resolvedAt = new Date().toISOString();
+  request.resolvedBy = req.user.id;
+  if (req.body.dueDate) {
+    request.dueDate = req.body.dueDate;
+  }
+  if (req.body.loanId) {
+    request.loanId = req.body.loanId;
+  }
   saveData(data);
   return res.json(request);
 });

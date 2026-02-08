@@ -14,6 +14,10 @@ const state = {
   bookScan: null,
   studentScan: null,
   currentBookDetail: null,
+  pendingRequestBook: null,
+  activeRequest: null,
+  studentRequests: [],
+  librarianRequests: [],
   manualBooks: [],
   manualStudents: []
 };
@@ -172,6 +176,7 @@ const setAuthState = (user) => {
     loadCatalog();
     loadStudentLoans();
     loadFavorites();
+    loadStudentRequests();
     loadStudentQr();
     loadStudentProfile();
     cacheStudentQr(); // Кэшируем QR для полуоффлайн режима
@@ -201,7 +206,7 @@ const updateNavVisibility = () => {
   document.querySelectorAll(".nav-item").forEach((item) => {
     const view = item.dataset.view;
     if (!view) return;
-    const studentViews = ["catalog", "student-loans", "favorites", "student-qr"];
+    const studentViews = ["catalog", "student-loans", "favorites", "student-requests", "student-qr"];
     const librarianViews = ["librarian-books", "librarian-issue", "librarian-loans"];
     const adminViews = ["admin-users", "admin-stats", "admin-loans"];
     const visible =
@@ -391,6 +396,58 @@ const renderFavorites = (items) => {
   });
 };
 
+const updateRequestBadge = (items = state.studentRequests) => {
+  const badge = document.querySelector("[data-badge='requests']");
+  if (!badge) return;
+  const pendingCount = items.filter((request) => request.status === "pending").length;
+  badge.textContent = pendingCount > 0 ? String(pendingCount) : "";
+  badge.classList.toggle("show", pendingCount > 0);
+};
+
+const renderStudentRequests = (items) => {
+  const container = document.querySelector("[data-list='student-requests']");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!items.length) {
+    container.innerHTML = '<div class="no-data">Пока нет запросов</div>';
+    return;
+  }
+  const statusLabels = {
+    pending: "На рассмотрении",
+    processed: "Одобрено",
+    declined: "Отклонено"
+  };
+  items.forEach((request) => {
+    const card = document.createElement("div");
+    const statusClass = request.status || "pending";
+    const dueDate = request.dueDate ? new Date(request.dueDate).toLocaleDateString() : "";
+    card.className = "request-card";
+    card.innerHTML = `
+      <div class="request-main">
+        <div class="request-title">${request.bookTitle || "Без названия"}</div>
+        <div class="request-meta">
+          <span><i class="fas fa-user"></i> ${request.bookAuthor || "Автор неизвестен"}</span>
+          ${request.bookLocation ? `<span><i class="fas fa-location-dot"></i> ${request.bookLocation}</span>` : ""}
+          ${dueDate ? `<span><i class="fas fa-calendar"></i> Срок до ${dueDate}</span>` : ""}
+        </div>
+        <div class="request-meta">
+          <span class="request-status ${statusClass}">
+            <i class="fas fa-circle"></i> ${statusLabels[request.status] || "—"}
+          </span>
+        </div>
+      </div>
+      <div class="request-actions">
+        ${request.status === "pending"
+          ? `<button class="secondary-button" data-action="cancel-request" data-id="${request.id}">
+              <i class="fas fa-times"></i> Отменить
+            </button>`
+          : ""}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+};
+
 const renderBooksTable = (items) => {
   const container = document.querySelector("[data-list='books']");
   container.innerHTML = "";
@@ -457,8 +514,11 @@ const renderLibrarianRequests = (items) => {
         </div>
       </div>
       <div class="request-actions">
-        <button class="secondary-button" data-action="resolve-request" data-id="${request.id}">
-          <i class="fas fa-check"></i> Обработано
+        <button class="secondary-button" data-action="open-request" data-id="${request.id}">
+          <i class="fas fa-check"></i> Обработать
+        </button>
+        <button class="secondary-button" data-action="decline-request" data-id="${request.id}">
+          <i class="fas fa-ban"></i> Отклонить
         </button>
       </div>
     `;
@@ -765,6 +825,15 @@ const loadFavorites = async () => {
   renderFavorites(data);
 };
 
+const loadStudentRequests = async () => {
+  const response = await fetchWithAuth("/api/student/requests");
+  if (!response.ok) return;
+  const data = await response.json();
+  state.studentRequests = data;
+  renderStudentRequests(data);
+  updateRequestBadge(data);
+};
+
 const loadStudentProfile = async () => {
   const response = await fetchWithAuth("/api/student/me");
   if (!response.ok) return;
@@ -817,6 +886,7 @@ const loadLibrarianRequests = async () => {
   const response = await fetchWithAuth("/api/librarian/requests");
   if (!response.ok) return;
   const data = await response.json();
+  state.librarianRequests = data;
   renderLibrarianRequests(data);
 };
 
@@ -1010,6 +1080,12 @@ let cachedStudentQr = localStorage.getItem("cachedStudentQr") || "";
 // Функция показа модального окна QR для выдачи книги
 const showIssueQrModal = async (book) => {
   const hasStudentQr = !!cachedStudentQr;
+  state.pendingRequestBook = book;
+  const requestBtn = document.querySelector("[data-action='send-request']");
+  if (requestBtn) {
+    requestBtn.disabled = !isAppOnline;
+    requestBtn.classList.toggle("disabled", !isAppOnline);
+  }
 
   // Скрываем все режимы
   document.querySelectorAll("[data-issue-mode]").forEach(el => el.classList.add("hidden"));
@@ -1058,6 +1134,28 @@ const showIssueQrModal = async (book) => {
     openModal("issue-qr");
     toast("Нет связи: покажите книгу и назовите ФИО, телефон или ИИН", "info");
   }
+};
+
+const openRequestIssueModal = (request) => {
+  if (!request) return;
+  state.activeRequest = request;
+  const dueInput = document.querySelector("[data-input='request-due-date']");
+  const formatDate = (value) => (value ? new Date(value).toISOString().split("T")[0] : "");
+  const fallbackDue = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  if (dueInput) {
+    dueInput.value = formatDate(request.dueDate) || fallbackDue;
+  }
+  const setText = (selector, value) => {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = value || "—";
+  };
+  setText("[data-text='request-book-title']", request.bookTitle);
+  setText("[data-text='request-book-author']", request.bookAuthor);
+  setText("[data-text='request-student-name']", request.studentName);
+  setText("[data-text='request-student-email']", request.studentEmail);
+  setText("[data-text='request-student-group']", request.studentGroup);
+  setText("[data-text='request-book-location']", request.bookLocation);
+  openModal("request-issue");
 };
 
 // Кэширование QR студента при загрузке
@@ -1424,6 +1522,12 @@ document.addEventListener("click", async (event) => {
   if (navItem && state.user) {
     const view = navItem.dataset.view;
     setActiveView(view);
+    if (view === "student-requests") {
+      loadStudentRequests();
+    }
+    if (view === "librarian-issue") {
+      loadLibrarianRequests();
+    }
     closeMenu();
     return;
   }
@@ -1522,16 +1626,15 @@ document.addEventListener("click", async (event) => {
   if (name === "requests-refresh") {
     loadLibrarianRequests();
   }
+  if (name === "student-requests-refresh") {
+    loadStudentRequests();
+  }
   if (name === "take-book") {
     const bookId = action.dataset.id;
-    const response = await fetchWithAuth("/api/student/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookId })
-    });
-    if (response.offline) return;
+    const response = await fetchWithAuth(`/api/student/books/${bookId}`);
+    if (!response.ok) return;
     const data = await response.json();
-    toast(data.message || "Запрос отправлен библиотекарю", "success");
+    showIssueQrModal(data);
   }
   if (name === "remove-favorite") {
     const bookId = action.dataset.id;
@@ -1574,15 +1677,105 @@ document.addEventListener("click", async (event) => {
     closeModal("book-detail");
     showIssueQrModal(state.currentBookDetail);
   }
-  if (name === "resolve-request") {
+  if (name === "send-request") {
+    if (!state.pendingRequestBook) {
+      toast("Сначала выберите книгу", "error");
+      return;
+    }
+    if (!navigator.onLine) {
+      toast("Нет связи: запрос можно отправить только онлайн", "info");
+      return;
+    }
+    const response = await fetchWithAuth("/api/student/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookId: state.pendingRequestBook.id })
+    });
+    if (response.offline) return;
+    const data = await response.json();
+    toast(data.message || "Запрос отправлен библиотекарю", "success");
+    loadStudentRequests();
+    state.pendingRequestBook = null;
+    closeModal("issue-qr");
+  }
+  if (name === "cancel-request") {
+    const requestId = action.dataset.id;
+    const response = await fetchWithAuth(`/api/student/requests/${requestId}`, { method: "DELETE" });
+    if (response.offline) return;
+    const data = await response.json();
+    toast(data.message || "Запрос отменен", "info");
+    loadStudentRequests();
+  }
+  if (name === "open-request") {
+    const requestId = action.dataset.id;
+    const request = state.librarianRequests.find((item) => item.id === requestId);
+    if (!request) return;
+    openRequestIssueModal(request);
+  }
+  if (name === "decline-request") {
     const requestId = action.dataset.id;
     const response = await fetchWithAuth(`/api/librarian/requests/${requestId}/resolve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "processed" })
+      body: JSON.stringify({ status: "declined" })
     });
     if (response.offline) return;
     loadLibrarianRequests();
+  }
+  if (name === "confirm-request-issue") {
+    if (!state.activeRequest) return;
+    if ((state.activeRequest.availableCopies || 0) <= 0) {
+      toast("Книга сейчас недоступна", "error");
+      return;
+    }
+    const dueDate = document.querySelector("[data-input='request-due-date']").value;
+    if (!dueDate) {
+      toast("Укажите срок возврата", "error");
+      return;
+    }
+    const issueResponse = await fetchWithAuth("/api/librarian/loans/issue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookId: state.activeRequest.bookId,
+        studentId: state.activeRequest.studentId,
+        dueDate
+      })
+    });
+    if (issueResponse.offline) return;
+    if (!issueResponse.ok) {
+      const data = await issueResponse.json().catch(() => ({ message: "Ошибка выдачи" }));
+      toast(data.message || "Ошибка выдачи", "error");
+      return;
+    }
+    const issueData = await issueResponse.json();
+    await fetchWithAuth(`/api/librarian/requests/${state.activeRequest.id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "processed", dueDate, loanId: issueData.id })
+    });
+    toast("Выдача подтверждена", "success");
+    state.activeRequest = null;
+    closeModal("request-issue");
+    loadLibrarianRequests();
+    loadLibrarianLoans();
+    loadBooks();
+  }
+  if (name === "decline-request-modal") {
+    if (!state.activeRequest) return;
+    const response = await fetchWithAuth(`/api/librarian/requests/${state.activeRequest.id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "declined" })
+    });
+    if (response.offline) return;
+    state.activeRequest = null;
+    closeModal("request-issue");
+    loadLibrarianRequests();
+  }
+  if (name === "close-request-issue") {
+    state.activeRequest = null;
+    closeModal("request-issue");
   }
   if (name === "upload-avatar") {
     const input = document.querySelector("[data-input='avatar-file']");
