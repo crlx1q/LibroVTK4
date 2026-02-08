@@ -96,6 +96,24 @@ const saveData = (data) => {
   writeJson("requests.json", data.requests);
 };
 
+const enrichRequest = (request, data) => {
+  const student = data.users.find((user) => user.id === request.studentId) || {};
+  const book = data.books.find((item) => item.id === request.bookId) || {};
+  return {
+    ...request,
+    studentName: student.fullName || "",
+    studentGroup: student.group || "",
+    studentEmail: student.email || "",
+    studentPhone: student.phone || "",
+    studentIin: student.iin || "",
+    bookTitle: book.title || "",
+    bookAuthor: book.author || "",
+    bookLocation: book.location || "",
+    availableCopies: book.availableCopies || 0,
+    totalCopies: book.totalCopies || 0
+  };
+};
+
 // Хранилище временных QR-кодов для выдачи (TTL 30 минут)
 const issueQrCodes = new Map();
 const QR_TTL = 30 * 60 * 1000; // 30 минут
@@ -126,6 +144,7 @@ const ensureAdmin = async () => {
       blocked: false,
       qrCodeDataUrl: "",
       phone: "",
+      iin: "",
       avatarUrl: ""
     });
     saveData(data);
@@ -141,6 +160,7 @@ const sanitizeUser = (user) => ({
   registeredAt: user.registeredAt,
   blocked: user.blocked,
   phone: user.phone || "",
+  iin: user.iin || "",
   avatarUrl: user.avatarUrl || ""
 });
 
@@ -172,8 +192,8 @@ const updateBookAvailability = (book) => {
 
 app.post("/api/auth/register", async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, group, phone } = req.body;
-  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(phone)) {
+  const { fullName, email, password, group, phone, iin } = req.body;
+  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(phone) || !validateRequired(iin)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
   if (data.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
@@ -187,12 +207,13 @@ app.post("/api/auth/register", async (req, res) => {
     role: "student",
     group: group || "",
     phone: phone.trim(),
+    iin: String(iin || "").trim(),
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
     blocked: false,
     qrCodeDataUrl: "",
-    avatarUrl: ""
+      avatarUrl: ""
   };
   data.users.push(user);
   saveData(data);
@@ -270,7 +291,7 @@ app.get("/api/admin/users", authRequired, roleRequired(["admin"]), (req, res) =>
 
 app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, role, group, phone } = req.body;
+  const { fullName, email, password, role, group, phone, iin } = req.body;
   if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(role)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
@@ -285,6 +306,7 @@ app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, 
     role,
     group: group || "",
     phone: phone || "",
+    iin: iin || "",
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
@@ -303,7 +325,7 @@ const updateUser = (req, res) => {
   if (!user) {
     return res.status(404).json({ message: "Пользователь не найден" });
   }
-  const { role, blocked, fullName, group, phone } = req.body;
+  const { role, blocked, fullName, group, phone, iin } = req.body;
   if (role) {
     user.role = role;
   }
@@ -318,6 +340,9 @@ const updateUser = (req, res) => {
   }
   if (typeof phone === "string") {
     user.phone = phone;
+  }
+  if (typeof iin === "string") {
+    user.iin = iin;
   }
   saveData(data);
   return res.json(sanitizeUser(user));
@@ -653,6 +678,14 @@ const sendPushToLibrarians = async (data, title, body, extraData = {}) => {
   }
 };
 
+app.get("/api/student/requests", authRequired, roleRequired(["student"]), (req, res) => {
+  const data = loadData();
+  const requests = data.requests
+    .filter((request) => request.studentId === req.user.id)
+    .map((request) => enrichRequest(request, data));
+  return res.json(requests);
+});
+
 app.post("/api/student/requests", authRequired, roleRequired(["student"]), async (req, res) => {
   const data = loadData();
   const { bookId } = req.body;
@@ -675,7 +708,11 @@ app.post("/api/student/requests", authRequired, roleRequired(["student"]), async
     bookId,
     studentId: req.user.id,
     status: "pending",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    resolvedAt: "",
+    dueDate: "",
+    issueDate: "",
+    loanId: ""
   };
   data.requests.push(request);
   saveData(data);
@@ -687,7 +724,22 @@ app.post("/api/student/requests", authRequired, roleRequired(["student"]), async
     { bookId, studentId: req.user.id, type: "book_request" }
   );
 
-  return res.json({ message: "Запрос отправлен библиотекарю" });
+  return res.json({ message: "Запрос отправлен библиотекарю", request: enrichRequest(request, data) });
+});
+
+app.post("/api/student/requests/:id/cancel", authRequired, roleRequired(["student"]), (req, res) => {
+  const data = loadData();
+  const request = data.requests.find((item) => item.id === req.params.id && item.studentId === req.user.id);
+  if (!request) {
+    return res.status(404).json({ message: "Запрос не найден" });
+  }
+  if (request.status !== "pending") {
+    return res.status(400).json({ message: "Запрос уже обработан" });
+  }
+  request.status = "cancelled";
+  request.resolvedAt = new Date().toISOString();
+  saveData(data);
+  return res.json(enrichRequest(request, data));
 });
 
 app.get("/api/student/favorites", authRequired, roleRequired(["student"]), (req, res) => {
@@ -733,21 +785,7 @@ app.get("/api/student/loans", authRequired, roleRequired(["student"]), (req, res
 
 app.get("/api/librarian/requests", authRequired, roleRequired(["librarian", "admin"]), (req, res) => {
   const data = loadData();
-  const enriched = data.requests.map((request) => {
-    const student = data.users.find((user) => user.id === request.studentId) || {};
-    const book = data.books.find((item) => item.id === request.bookId) || {};
-    return {
-      ...request,
-      studentName: student.fullName || "",
-      studentGroup: student.group || "",
-      studentEmail: student.email || "",
-      bookTitle: book.title || "",
-      bookAuthor: book.author || "",
-      bookLocation: book.location || "",
-      availableCopies: book.availableCopies || 0,
-      totalCopies: book.totalCopies || 0
-    };
-  });
+  const enriched = data.requests.map((request) => enrichRequest(request, data));
   return res.json(enriched);
 });
 
@@ -760,7 +798,61 @@ app.post("/api/librarian/requests/:id/resolve", authRequired, roleRequired(["lib
   request.status = req.body.status || "processed";
   request.resolvedAt = new Date().toISOString();
   saveData(data);
-  return res.json(request);
+  return res.json(enrichRequest(request, data));
+});
+
+app.post("/api/librarian/requests/:id/reject", authRequired, roleRequired(["librarian", "admin"]), (req, res) => {
+  const data = loadData();
+  const request = data.requests.find((item) => item.id === req.params.id);
+  if (!request) {
+    return res.status(404).json({ message: "Запрос не найден" });
+  }
+  if (request.status !== "pending") {
+    return res.status(400).json({ message: "Запрос уже обработан" });
+  }
+  request.status = "rejected";
+  request.resolvedAt = new Date().toISOString();
+  saveData(data);
+  return res.json(enrichRequest(request, data));
+});
+
+app.post("/api/librarian/requests/:id/issue", authRequired, roleRequired(["librarian", "admin"]), (req, res) => {
+  const data = loadData();
+  const request = data.requests.find((item) => item.id === req.params.id);
+  if (!request) {
+    return res.status(404).json({ message: "Запрос не найден" });
+  }
+  if (request.status !== "pending") {
+    return res.status(400).json({ message: "Запрос уже обработан" });
+  }
+  const book = data.books.find((item) => item.id === request.bookId);
+  const student = data.users.find((user) => user.id === request.studentId && user.role === "student");
+  if (!book || !student) {
+    return res.status(404).json({ message: "Книга или студент не найдены" });
+  }
+  if (book.availableCopies <= 0) {
+    return res.status(400).json({ message: "Книга недоступна" });
+  }
+  const dueDate = req.body.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const loan = {
+    id: crypto.randomUUID(),
+    studentId: student.id,
+    bookId: book.id,
+    issueDate: new Date().toISOString(),
+    dueDate,
+    returnDate: "",
+    status: "выдана"
+  };
+  data.loans.push(loan);
+  book.availableCopies = (Number(book.availableCopies) || 0) - 1;
+  updateBookAvailability(book);
+  request.status = "issued";
+  request.resolvedAt = new Date().toISOString();
+  request.dueDate = dueDate;
+  request.issueDate = loan.issueDate;
+  request.loanId = loan.id;
+  saveData(data);
+  return res.json({ request: enrichRequest(request, data), loan });
 });
 
 app.get("/api/student/me", authRequired, roleRequired(["student", "admin", "librarian"]), (req, res) => {

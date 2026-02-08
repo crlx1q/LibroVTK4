@@ -301,6 +301,16 @@ body.theme-dark .side-nav {
   transition: all 0.2s ease;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background: rgb(239, 68, 68);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
 .nav-item:hover {
   background: rgba(37, 99, 235, 0.08);
 }
@@ -1370,6 +1380,71 @@ body.theme-dark .request-card {
 .request-actions {
   display: flex;
   gap: 8px;
+}
+
+.request-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.1);
+  color: rgb(37, 99, 235);
+}
+
+.request-status.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: rgb(180, 83, 9);
+}
+
+.request-status.rejected,
+.request-status.cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(185, 28, 28);
+}
+
+.request-status.issued {
+  background: rgba(34, 197, 94, 0.15);
+  color: rgb(22, 163, 74);
+}
+
+.request-issue-modal {
+  max-width: 520px;
+  width: 92vw;
+}
+
+.request-issue-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.request-issue-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+body.theme-dark .request-issue-info {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.request-issue-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.request-issue-item .label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.request-issue-item .value {
+  font-weight: 600;
 }
 
 .issue-grid {
@@ -3113,9 +3188,8 @@ body.theme-dark .scanner-result-card {
 .result-value {
   font-size: 16px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .result-clear {
@@ -3164,6 +3238,70 @@ body.theme-dark .issue-form {
   white-space: nowrap;
 }
 
+.manual-issue {
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+body.theme-dark .manual-issue {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.manual-issue-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.manual-issue-header h3 {
+  margin: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-issue-header span {
+  color: rgba(100, 116, 139, 0.9);
+  font-size: 14px;
+}
+
+body.theme-dark .manual-issue-header span {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.manual-issue-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.scanner-modal {
+  max-width: 520px;
+}
+
+.scanner-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scanner-hint {
+  text-align: center;
+  color: rgba(100, 116, 139, 0.9);
+  font-size: 14px;
+}
+
+body.theme-dark .scanner-hint {
+  color: rgba(148, 163, 184, 0.9);
+}
+
 .issue-status {
   padding: 16px 24px;
   background: rgba(45, 212, 191, 0.1);
@@ -3195,6 +3333,20 @@ body.theme-dark .issue-form {
   .issue-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .manual-issue-form {
+    grid-template-columns: 1fr;
+  }
+
+  .request-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .request-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 
@@ -4003,6 +4155,12 @@ body.theme-dark .issue-mode-badge.offline {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.issue-actions {
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 
