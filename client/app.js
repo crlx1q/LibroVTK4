@@ -47,12 +47,46 @@ const updateThemeIcon = () => {
   }
 };
 
+// Логика статуса сети
+let isAppOnline = navigator.onLine;
+
+const updateConnectionStatus = (online) => {
+  isAppOnline = online;
+  const statusEl = document.querySelector("[data-status='connection']");
+  if (statusEl) {
+    statusEl.className = `connection-status ${online ? "online" : "offline"}`;
+    statusEl.querySelector(".status-text").textContent = online ? "Онлайн" : "Оффлайн";
+  }
+  updateOfflineBanner();
+};
+
+const checkConnection = async () => {
+  try {
+    // Делаем легкий запрос к серверу для проверки реальной связи
+    // Используем уникальный параметр, чтобы избежать кэширования
+    await fetch(`/api/ping?t=${Date.now()}`, { method: "HEAD", cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+    if (!isAppOnline) updateConnectionStatus(true);
+  } catch (e) {
+    if (isAppOnline) updateConnectionStatus(false);
+  }
+};
+
+// Слушатели событий сети
+window.addEventListener("online", () => {
+  updateConnectionStatus(true);
+  checkConnection(); // Доп. проверка
+});
+window.addEventListener("offline", () => updateConnectionStatus(false));
+
+// Периодическая проверка каждые 10 секунд
+setInterval(checkConnection, 10000);
+
 const isMobileLayout = () => window.matchMedia("(max-width: 980px)").matches;
 
 const updateOfflineBanner = () => {
   if (!elements.offlineBanner) return;
-  const offline = !navigator.onLine;
-  elements.offlineBanner.classList.toggle("hidden", !offline);
+  // Показываем баннер только если мы оффлайн
+  elements.offlineBanner.classList.toggle("hidden", isAppOnline);
 };
 
 const toast = (message, type = "info") => {
@@ -98,7 +132,7 @@ const setAuthState = (user) => {
   state.user = user;
   const loginForm = document.querySelector("[data-form='login']");
   const registerForm = document.querySelector("[data-form='register']");
-  
+
   if (!user) {
     setActiveView("landing");
     elements.menu.classList.add("hidden");
@@ -109,12 +143,12 @@ const setAuthState = (user) => {
     if (registerForm) registerForm.reset();
     return;
   }
-  
+
   elements.authModal.classList.add("hidden");
   elements.headerLoginBtn.classList.add("hidden");
   elements.burgerBtn.classList.remove("hidden");
   elements.menu.classList.remove("hidden");
-  
+
   const navUser = document.querySelector("[data-slot='nav-user']");
   if (navUser) {
     const roleNames = { student: "Студент", librarian: "Библиотекарь", admin: "Администратор" };
@@ -123,7 +157,7 @@ const setAuthState = (user) => {
       <div class="nav-user-role">${roleNames[user.role] || user.role}</div>
     `;
   }
-  
+
   if (user.role === "student") {
     setActiveView("catalog");
     loadCatalog();
@@ -131,6 +165,7 @@ const setAuthState = (user) => {
     loadFavorites();
     loadStudentQr();
     loadStudentProfile();
+    cacheStudentQr(); // Кэшируем QR для полуоффлайн режима
   }
   if (user.role === "librarian") {
     setActiveView("librarian-books");
@@ -138,6 +173,7 @@ const setAuthState = (user) => {
     loadLibrarianLoans();
     loadLibrarianRequests();
     initScanner();
+    requestNotificationPermission();
   }
   if (user.role === "admin") {
     setActiveView("admin-users");
@@ -337,6 +373,7 @@ const renderFavorites = (items) => {
       <div class="${availability.badgeClass}">${availability.badgeText}</div>
       <div class="card-actions">
         <button class="secondary-button" data-action="details" data-id="${fav.book.id}">Подробнее</button>
+        <button class="primary-button" data-action="take-book" data-id="${fav.book.id}" ${availability.availableCount > 0 ? "" : "disabled"}>Взять</button>
         <button class="secondary-button" data-action="remove-favorite" data-id="${fav.book.id}">Удалить</button>
       </div>
     `;
@@ -522,7 +559,7 @@ const renderStats = (data) => {
   const stats = document.querySelector("[data-list='stats']");
   const totalUsers = (data.usersByRole?.student || 0) + (data.usersByRole?.librarian || 0) + (data.usersByRole?.admin || 0);
   const activeLoans = data.activeLoans || 0;
-  
+
   stats.innerHTML = `
     <div class="stat-card stat-books">
       <div class="stat-icon"><i class="fas fa-book"></i></div>
@@ -813,12 +850,12 @@ const renderAdminShelves = (books) => {
       const shelfMatch = book.location?.match(/полка\s*(\d+)/i);
       const row = rowMatch ? Number(rowMatch[1]) : null;
       const shelf = shelfMatch ? Number(shelfMatch[1]) : null;
-      return { row, shelf, title: book.title, author: book.author, location: book.location || "" };
+      return { row, shelf, title: book.title, author: book.author, location: book.location || "", cover: book.cover };
     })
     .filter((item) => Number.isFinite(item.row) && Number.isFinite(item.shelf));
   const unlocated = books.filter((book) => !book.location);
-  const maxRow = Math.max(4, ...locations.map((loc) => loc.row || 0));
-  const maxShelf = Math.max(8, ...locations.map((loc) => loc.shelf || 0));
+  const maxRow = Math.max(10, ...locations.map((loc) => loc.row || 0));
+  const maxShelf = Math.max(10, ...locations.map((loc) => loc.shelf || 0));
   const map = new Map();
   locations.forEach((loc) => {
     const key = `${loc.row}-${loc.shelf}`;
@@ -828,40 +865,49 @@ const renderAdminShelves = (books) => {
   const summary = document.createElement("div");
   summary.className = "shelf-summary";
   summary.innerHTML = `
-    <div class="shelf-summary-item"><strong>${books.length}</strong> книг в фонде</div>
-    <div class="shelf-summary-item"><strong>${locations.length}</strong> с расположением</div>
-    <div class="shelf-summary-item"><strong>${unlocated.length}</strong> без полки</div>
+    <div class="shelf-summary-item"><i class="fas fa-book"></i> <strong>${books.length}</strong> книг в фонде</div>
+    <div class="shelf-summary-item"><i class="fas fa-map-marker-alt"></i> <strong>${locations.length}</strong> с расположением</div>
+    <div class="shelf-summary-item"><i class="fas fa-question-circle"></i> <strong>${unlocated.length}</strong> без полки</div>
   `;
   const grid = document.createElement("div");
   grid.className = "shelf-grid";
-  grid.style.gridTemplateColumns = `repeat(${maxShelf}, minmax(44px, 1fr))`;
+  grid.style.gridTemplateColumns = `repeat(${maxShelf}, minmax(50px, 1fr))`;
   for (let row = 1; row <= maxRow; row++) {
     for (let shelf = 1; shelf <= maxShelf; shelf++) {
       const key = `${row}-${shelf}`;
       const entries = map.get(key) || [];
       const cell = document.createElement("div");
-      cell.className = `shelf-cell${entries.length ? "" : " empty"}`;
-      cell.innerHTML = `
-        <div>${entries.length ? entries.length : "—"}</div>
-        <div class="shelf-meta">Ряд ${row}, Полка ${shelf}</div>
-        ${
-          entries.length
-            ? `<div class="shelf-tooltip">
-                <div class="shelf-tooltip-title">Книги на полке</div>
-                <div class="shelf-tooltip-list">
-                  ${entries
-                    .slice(0, 6)
-                    .map(
-                      (entry) =>
-                        `<div class="shelf-tooltip-item">${entry.title}${entry.author ? ` — ${entry.author}` : ""}</div>`
-                    )
-                    .join("")}
-                  ${entries.length > 6 ? `<div class="shelf-tooltip-item">и еще ${entries.length - 6}...</div>` : ""}
-                </div>
-              </div>`
-            : ""
-        }
-      `;
+      cell.className = `shelf-cell${entries.length ? " has-books" : " empty"}`;
+      if (entries.length) {
+        cell.innerHTML = `<div class="book-count">${entries.length}</div>`;
+        cell.addEventListener("click", () => {
+          const popup = document.createElement("div");
+          popup.className = "shelf-popup";
+          popup.innerHTML = `
+            <div class="shelf-popup-backdrop"></div>
+            <div class="shelf-popup-content">
+              <div class="shelf-popup-header">
+                <h3><i class="fas fa-map-marker-alt"></i> Ряд ${row}, Полка ${shelf}</h3>
+                <button class="shelf-popup-close"><i class="fas fa-times"></i></button>
+              </div>
+              <div class="shelf-popup-list">
+                ${entries.map(e => `
+                  <div class="shelf-popup-item">
+                    <i class="fas fa-book"></i>
+                    <div>
+                      <div class="shelf-popup-title">${e.title}</div>
+                      <div class="shelf-popup-author">${e.author || ""}</div>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `;
+          document.body.appendChild(popup);
+          popup.querySelector(".shelf-popup-backdrop").addEventListener("click", () => popup.remove());
+          popup.querySelector(".shelf-popup-close").addEventListener("click", () => popup.remove());
+        });
+      }
       grid.appendChild(cell);
     }
   }
@@ -871,9 +917,9 @@ const renderAdminShelves = (books) => {
     ? `<div class="shelf-unlocated-title">Книги без указанной полки</div>
        <div class="shelf-unlocated-list">
          ${unlocated
-           .slice(0, 6)
-           .map((book) => `<span>${book.title}${book.author ? ` — ${book.author}` : ""}</span>`)
-           .join("")}
+      .slice(0, 6)
+      .map((book) => `<span>${book.title}${book.author ? ` — ${book.author}` : ""}</span>`)
+      .join("")}
          ${unlocated.length > 6 ? `<span>и еще ${unlocated.length - 6}...</span>` : ""}
        </div>`
     : `<div class="shelf-unlocated-title">Все книги размещены на полках</div>`;
@@ -891,6 +937,77 @@ const closeModal = (name) => {
   document.querySelector(`[data-modal='${name}']`).classList.add("hidden");
 };
 
+// Кэш QR-кода студента для полуоффлайн режима
+let cachedStudentQr = localStorage.getItem("cachedStudentQr") || "";
+
+// Функция показа модального окна QR для выдачи книги
+const showIssueQrModal = async (book) => {
+  const hasStudentQr = !!cachedStudentQr;
+
+  // Скрываем все режимы
+  document.querySelectorAll("[data-issue-mode]").forEach(el => el.classList.add("hidden"));
+
+  // Сначала проверяем глобальный статус оффлайн
+  // Если мы точно знаем что мы оффлайн - сразу показываем оффлайн режим, не пытаясь делать fetch
+  if (isAppOnline) {
+    // Пытаемся сгенерировать онлайн QR
+    try {
+      const response = await fetchWithAuth("/api/student/issue-qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Показываем онлайн режим
+        document.querySelector("[data-issue-mode='online']").classList.remove("hidden");
+        document.querySelector("[data-slot='issue-qr-image']").innerHTML = `<img src="${data.qrCodeDataUrl}" alt="QR">`;
+        document.querySelector("[data-text='issue-book-title']").textContent = data.book.title;
+        document.querySelector("[data-text='issue-expires']").textContent = data.expiresIn;
+
+        openModal("issue-qr");
+        toast("QR-код сгенерирован на 30 минут", "success");
+        return;
+      }
+
+      // Если сервер вернул ошибку - тоже fallback
+    } catch (e) {
+      console.warn("Issue QR generation failed, falling back to offline mode", e);
+    }
+  }
+
+  // Оффлайн режим (или если запрос упал)
+  if (hasStudentQr) {
+    // Полуоффлайн - есть кэш QR студента
+    document.querySelector("[data-issue-mode='semi']").classList.remove("hidden");
+    document.querySelector("[data-slot='issue-qr-student']").innerHTML = `<img src="${cachedStudentQr}" alt="QR">`;
+    openModal("issue-qr");
+    toast("Нет связи: покажите QR и книгу библиотекарю", "info");
+  } else {
+    // Полный оффлайн - нет данных
+    document.querySelector("[data-issue-mode='offline']").classList.remove("hidden");
+    openModal("issue-qr");
+    toast("Нет связи: покажите книгу и назовите ФИО", "info");
+  }
+};
+
+// Кэширование QR студента при загрузке
+const cacheStudentQr = async () => {
+  if (!navigator.onLine || !state.accessToken) return;
+  try {
+    const response = await fetchWithAuth("/api/student/qr");
+    if (response.ok) {
+      const data = await response.json();
+      cachedStudentQr = data.qrCodeDataUrl;
+      localStorage.setItem("cachedStudentQr", cachedStudentQr);
+    }
+  } catch (e) {
+    console.warn("Failed to cache student QR", e);
+  }
+};
+
 const beepSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -903,7 +1020,7 @@ const beepSound = () => {
     gain.gain.value = 0.3;
     oscillator.start();
     oscillator.stop(ctx.currentTime + 0.15);
-  } catch (e) {}
+  } catch (e) { }
 };
 
 let scannerStream = null;
@@ -927,15 +1044,15 @@ const startScanner = async () => {
   const video = document.querySelector("[data-video='scanner']");
   const statusEl = document.querySelector("[data-text='issue-status']");
   const btn = document.querySelector("[data-action='start-scanner']");
-  
+
   if (scannerActive) {
     stopScanner();
     return;
   }
 
   try {
-    scannerStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     video.srcObject = scannerStream;
     scannerActive = true;
@@ -945,7 +1062,7 @@ const startScanner = async () => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-    const scan = () => {
+    const scan = async () => {
       if (!scannerActive) return;
       if (video.readyState < 2) {
         requestAnimationFrame(scan);
@@ -972,11 +1089,31 @@ const startScanner = async () => {
             document.querySelector("[data-text='student-scan']").textContent = parsed.fullName || "Студент распознан";
             beepSound();
             toast("Студент отсканирован", "success");
+          } else if (parsed.type === "issue" && parsed.code) {
+            // Новый тип - единый QR для выдачи
+            try {
+              const response = await fetchWithAuth(`/api/librarian/resolve-issue-qr?code=${parsed.code}`);
+              if (response.ok) {
+                const issueData = await response.json();
+                state.bookScan = issueData.bookId;
+                state.studentScan = issueData.studentId;
+                document.querySelector("[data-text='book-scan']").textContent = issueData.bookTitle || "Книга";
+                document.querySelector("[data-text='student-scan']").textContent = issueData.studentName || "Студент";
+                beepSound();
+                toast(`${issueData.studentName}: ${issueData.bookTitle}`, "success");
+                statusEl.textContent = "Готово к выдаче!";
+              } else {
+                const err = await response.json().catch(() => ({ message: "Ошибка" }));
+                toast(err.message || "QR-код недействителен", "error");
+              }
+            } catch (e) {
+              toast("Ошибка проверки QR-кода", "error");
+            }
           }
           if (state.bookScan && state.studentScan) {
             statusEl.textContent = "Готово к выдаче!";
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       requestAnimationFrame(scan);
@@ -1159,70 +1296,91 @@ document.addEventListener("click", async (event) => {
   }
   if (name === "details") {
     const bookId = action.dataset.id;
-    const response = await fetchWithAuth(`/api/student/books/${bookId}`);
-    if (!response.ok) return;
-    const book = await response.json();
-    state.currentBookDetail = book;
-    
-    document.querySelector("[data-text='book-detail-name']").textContent = book.title;
-    document.querySelector("[data-text='book-detail-author']").textContent = book.author;
-    document.querySelector("[data-text='book-detail-year']").textContent = book.year || "—";
-    document.querySelector("[data-text='book-detail-genre']").textContent = book.genre || "—";
-    document.querySelector("[data-text='book-detail-category']").textContent = book.category || "Не указана";
-    document.querySelector("[data-text='book-detail-available']").textContent = book.availableCopies || 0;
-    document.querySelector("[data-text='book-detail-total']").textContent = book.totalCopies || 1;
-    document.querySelector("[data-text='book-detail-inv']").textContent = book.inventoryNumber || "—";
-    document.querySelector("[data-text='book-detail-desc']").textContent = book.description || "Описание отсутствует";
-    document.querySelector("[data-text='book-detail-location']").textContent = book.location || "Расположение не указано";
-    
-    const coverSlot = document.querySelector("[data-slot='book-detail-cover']");
-    if (book.cover) {
-      coverSlot.innerHTML = `<img src="${book.cover}" alt="${book.title}">`;
-    } else {
-      coverSlot.innerHTML = '<i class="fas fa-book"></i>';
-    }
-    
-    const availIndicator = document.querySelector(".availability-indicator");
-    if ((book.availableCopies || 0) > 0) {
-      availIndicator.className = "availability-indicator available";
-      availIndicator.querySelector("i").className = "fas fa-check-circle";
-    } else {
-      availIndicator.className = "availability-indicator unavailable";
-      availIndicator.querySelector("i").className = "fas fa-times-circle";
-    }
-    const takeBtn = document.querySelector("[data-action='take-book-detail']");
-    if (takeBtn) {
-      takeBtn.disabled = (book.availableCopies || 0) <= 0;
-    }
-    
-    const studentShelf = document.querySelector("[data-slot='student-bookshelf']");
-    let row = 1, shelf = 1;
-    if (book.location) {
-      const rowMatch = book.location.match(/ряд\s*(\d+)/i);
-      const shelfMatch = book.location.match(/полка\s*(\d+)/i);
-      if (rowMatch) row = parseInt(rowMatch[1]);
-      if (shelfMatch) shelf = parseInt(shelfMatch[1]);
-    }
-    let shelfHtml = '';
-    for (let r = 1; r <= 10; r++) {
-      for (let s = 1; s <= 10; s++) {
-        const isHighlight = (r === row && s === shelf) ? 'highlight' : '';
-        shelfHtml += `<div class="bookshelf-cell ${isHighlight}"></div>`;
+    if (!bookId) return;
+    try {
+      const response = await fetch(`/api/student/books/${bookId}`, {
+        headers: {
+          "Authorization": `Bearer ${state.accessToken}`,
+          "Cache-Control": "no-cache"
+        }
+      });
+      if (!response.ok) {
+        console.error("Details fetch failed:", response.status);
+        return;
       }
+      const book = await response.json();
+      if (!book || !book.title) {
+        console.error("Invalid book data:", book);
+        return;
+      }
+      state.currentBookDetail = book;
+
+      document.querySelector("[data-text='book-detail-name']").textContent = book.title;
+      document.querySelector("[data-text='book-detail-author']").textContent = book.author;
+      document.querySelector("[data-text='book-detail-year']").textContent = book.year || "—";
+      document.querySelector("[data-text='book-detail-genre']").textContent = book.genre || "—";
+      document.querySelector("[data-text='book-detail-category']").textContent = book.category || "Не указана";
+      document.querySelector("[data-text='book-detail-available']").textContent = book.availableCopies || 0;
+      document.querySelector("[data-text='book-detail-total']").textContent = book.totalCopies || 1;
+      document.querySelector("[data-text='book-detail-inv']").textContent = book.inventoryNumber || "—";
+      document.querySelector("[data-text='book-detail-desc']").textContent = book.description || "Описание отсутствует";
+      document.querySelector("[data-text='book-detail-location']").textContent = book.location || "Расположение не указано";
+
+      const coverSlot = document.querySelector("[data-slot='book-detail-cover']");
+      if (book.cover) {
+        coverSlot.innerHTML = `<img src="${book.cover}" alt="${book.title}">`;
+      } else {
+        coverSlot.innerHTML = '<i class="fas fa-book"></i>';
+      }
+
+      const availIndicator = document.querySelector(".availability-indicator");
+      if ((book.availableCopies || 0) > 0) {
+        availIndicator.className = "availability-indicator available";
+        availIndicator.querySelector("i").className = "fas fa-check-circle";
+      } else {
+        availIndicator.className = "availability-indicator unavailable";
+        availIndicator.querySelector("i").className = "fas fa-times-circle";
+      }
+      const takeBtn = document.querySelector("[data-action='take-book-detail']");
+      if (takeBtn) {
+        takeBtn.disabled = (book.availableCopies || 0) <= 0;
+      }
+
+      const studentShelf = document.querySelector("[data-slot='student-bookshelf']");
+      let row = 1, shelf = 1;
+      if (book.location) {
+        const rowMatch = book.location.match(/ряд\s*(\d+)/i);
+        const shelfMatch = book.location.match(/полка\s*(\d+)/i);
+        if (rowMatch) row = parseInt(rowMatch[1]);
+        if (shelfMatch) shelf = parseInt(shelfMatch[1]);
+      }
+      let shelfHtml = '';
+      for (let r = 1; r <= 10; r++) {
+        for (let s = 1; s <= 10; s++) {
+          const isHighlight = (r === row && s === shelf) ? 'highlight' : '';
+          shelfHtml += `<div class="bookshelf-cell ${isHighlight}"></div>`;
+        }
+      }
+      studentShelf.innerHTML = shelfHtml;
+
+      const qrSlot = document.querySelector("[data-slot='book-qr-image']");
+      if (book.qrCodeDataUrl) {
+        qrSlot.innerHTML = `<img src="${book.qrCodeDataUrl}" alt="QR">`;
+      } else {
+        qrSlot.innerHTML = '<span style="color:#94a3b8;font-size:13px">QR-код не сгенерирован</span>';
+      }
+
+      openModal("book-detail");
+    } catch (err) {
+      console.error("Details error:", err);
+      toast("Ошибка загрузки книги", "error");
     }
-    studentShelf.innerHTML = shelfHtml;
-    
-    const qrSlot = document.querySelector("[data-slot='book-qr-image']");
-    if (book.qrCodeDataUrl) {
-      qrSlot.innerHTML = `<img src="${book.qrCodeDataUrl}" alt="QR">`;
-    } else {
-      qrSlot.innerHTML = '<span style="color:#94a3b8;font-size:13px">QR-код не сгенерирован</span>';
-    }
-    
-    openModal("book-detail");
   }
   if (name === "close-book-detail") {
     closeModal("book-detail");
+  }
+  if (name === "close-issue-qr") {
+    closeModal("issue-qr");
   }
   if (name === "toggle-favorite-detail") {
     if (!state.currentBookDetail) return;
@@ -1241,14 +1399,10 @@ document.addEventListener("click", async (event) => {
       toast("Книга сейчас недоступна", "info");
       return;
     }
-    const response = await fetchWithAuth("/api/student/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookId: state.currentBookDetail.id })
-    });
-    if (response.offline) return;
-    const data = await response.json();
-    toast(data.message || "Запрос отправлен библиотекарю", "success");
+
+    // Показываем модальное окно QR для выдачи
+    closeModal("book-detail");
+    showIssueQrModal(state.currentBookDetail);
   }
   if (name === "resolve-request") {
     const requestId = action.dataset.id;
@@ -1295,7 +1449,7 @@ document.addEventListener("click", async (event) => {
     form.inventoryNumber.value = book.inventoryNumber || "";
     form.category.value = book.category || "";
     document.querySelector("[data-input='cover-hidden']").value = book.cover || "";
-    
+
     let row = 1, shelf = 1;
     if (book.location) {
       const rowMatch = book.location.match(/ряд\s*(\d+)/i);
@@ -1306,7 +1460,7 @@ document.addEventListener("click", async (event) => {
     document.querySelector("[data-input='location-row']").value = row;
     document.querySelector("[data-input='location-shelf']").value = shelf;
     updateLocationPreview();
-    
+
     if (book.cover) {
       setCoverPreview(book.cover);
     } else {
@@ -1461,7 +1615,7 @@ document.addEventListener("submit", async (event) => {
     const method = payload.id ? "PUT" : "POST";
     const url = payload.id ? `/api/librarian/books/${payload.id}` : "/api/librarian/books";
     if (!payload.totalCopies) payload.totalCopies = 1;
-    
+
     if (pendingCoverFile) {
       const uploadData = new FormData();
       uploadData.append("cover", pendingCoverFile);
@@ -1478,7 +1632,7 @@ document.addEventListener("submit", async (event) => {
         console.error("Cover upload failed:", e);
       }
     }
-    
+
     const response = await fetchWithAuth(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -1641,15 +1795,15 @@ const updateLocationPreview = () => {
   const hiddenInput = document.querySelector("[data-input='location-hidden']");
   const label = document.querySelector("[data-text='location-label']");
   const miniShelf = document.querySelector("[data-slot='mini-bookshelf']");
-  
+
   if (!rowInput || !shelfInput) return;
-  
+
   const row = parseInt(rowInput.value) || 1;
   const shelf = parseInt(shelfInput.value) || 1;
-  
+
   hiddenInput.value = `Ряд ${row}, Полка ${shelf}`;
   label.textContent = `Ряд ${row}, Полка ${shelf}`;
-  
+
   let html = '';
   for (let r = 1; r <= 10; r++) {
     for (let s = 1; s <= 5; s++) {
@@ -1680,9 +1834,89 @@ window.addEventListener("offline", updateOfflineBanner);
 
 elements.overlay.addEventListener("click", closeMenu);
 
-if ("serviceWorker" in navigator) {
+const canUseServiceWorkers = "serviceWorker" in navigator;
+
+if (canUseServiceWorkers) {
   navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("firebase-messaging-sw.js");
 }
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCRHXd_7p77EH-onhpuRtZskroS7sY_dHc",
+  authDomain: "assist-97363.firebaseapp.com",
+  projectId: "assist-97363",
+  storageBucket: "assist-97363.firebasestorage.app",
+  messagingSenderId: "700060547241",
+  appId: "1:700060547241:web:d7eb3554e5e8589e0f91b8"
+};
+
+let firebaseApp = null;
+let messaging = null;
+
+const initFirebase = async () => {
+  try {
+    if (!canUseServiceWorkers || typeof Notification === "undefined") {
+      console.info("Push notifications are not supported in this browser");
+      return;
+    }
+
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+    const { getMessaging, onMessage, isSupported } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js");
+
+    const messagingSupported = await isSupported();
+    if (!messagingSupported) {
+      console.info("Firebase messaging is not supported in this browser");
+      return;
+    }
+
+    firebaseApp = initializeApp(firebaseConfig);
+    messaging = getMessaging(firebaseApp);
+
+    onMessage(messaging, (payload) => {
+      console.log("Push received:", payload);
+      toast(payload.notification?.body || "Новое уведомление", "info");
+    });
+
+    console.log("Firebase initialized");
+  } catch (err) {
+    console.warn("Firebase init error:", err);
+  }
+};
+
+const requestNotificationPermission = async () => {
+  if (!messaging || typeof Notification === "undefined") return null;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      const { getToken } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js");
+      const token = await getToken(messaging, {
+        vapidKey: "BELcEis0aj3NRkb_VjLF8l6tjq2vMBUGPmbJznsm1o3AFGzBS6A6UhhAw-PR5xFMGRmPyykDKR-KgJejk-64RVA"
+      });
+      if (token) {
+        console.log("FCM Token:", token);
+        await saveFcmToken(token);
+        return token;
+      }
+    }
+  } catch (err) {
+    console.warn("Notification permission error:", err);
+  }
+  return null;
+};
+
+const saveFcmToken = async (token) => {
+  try {
+    await fetchWithAuth("/api/user/fcm-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token })
+    });
+  } catch (err) {
+    console.warn("Save FCM token error:", err);
+  }
+};
+
+initFirebase();
 
 initTheme();
 loadCurrentUser();

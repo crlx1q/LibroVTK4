@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,6 +11,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
+
 <body class="theme-light">
   <div class="offline-banner hidden" data-banner="offline">
     <i class="fas fa-wifi"></i>
@@ -27,6 +29,10 @@
         </div>
       </div>
       <div class="top-actions">
+        <div class="connection-status online" data-status="connection" title="Статус соединения">
+          <span class="status-dot"></span>
+          <span class="status-text">Онлайн</span>
+        </div>
         <button class="icon-button" data-action="toggle-theme" title="Сменить тему">
           <i class="fas fa-moon" data-icon="theme"></i>
         </button>
@@ -47,12 +53,17 @@
         <button class="nav-item" data-view="favorites"><i class="fas fa-heart"></i><span>Избранное</span></button>
         <button class="nav-item" data-view="student-qr"><i class="fas fa-qrcode"></i><span>Мой QR</span></button>
         <button class="nav-item" data-view="librarian-books"><i class="fas fa-list"></i><span>Книги</span></button>
-        <button class="nav-item" data-view="librarian-issue"><i class="fas fa-camera"></i><span>Выдача по QR</span></button>
-        <button class="nav-item" data-view="librarian-loans"><i class="fas fa-clipboard-list"></i><span>Текущие выдачи</span></button>
+        <button class="nav-item" data-view="librarian-issue"><i class="fas fa-camera"></i><span>Выдача по
+            QR</span></button>
+        <button class="nav-item" data-view="librarian-loans"><i class="fas fa-clipboard-list"></i><span>Текущие
+            выдачи</span></button>
         <button class="nav-item" data-view="admin-users"><i class="fas fa-users"></i><span>Пользователи</span></button>
-        <button class="nav-item" data-view="admin-stats"><i class="fas fa-chart-column"></i><span>Статистика</span></button>
-        <button class="nav-item" data-view="admin-loans"><i class="fas fa-layer-group"></i><span>Все выдачи</span></button>
-        <button class="nav-item logout-item" data-action="logout"><i class="fas fa-right-from-bracket"></i><span>Выход</span></button>
+        <button class="nav-item" data-view="admin-stats"><i
+            class="fas fa-chart-column"></i><span>Статистика</span></button>
+        <button class="nav-item" data-view="admin-loans"><i class="fas fa-layer-group"></i><span>Все
+            выдачи</span></button>
+        <button class="nav-item logout-item" data-action="logout"><i
+            class="fas fa-right-from-bracket"></i><span>Выход</span></button>
       </nav>
 
       <main class="content">
@@ -62,7 +73,8 @@
             <div class="hero-container">
               <div class="hero-content">
                 <h1 class="hero-title">Современная<br><span class="hero-accent">Библиотека</span></h1>
-                <p class="hero-text">Цифровая платформа для управления библиотечным фондом ВТК. Быстрый поиск, электронные читательские билеты и мгновенная выдача книг.</p>
+                <p class="hero-text">Цифровая платформа для управления библиотечным фондом ВТК. Быстрый поиск,
+                  электронные читательские билеты и мгновенная выдача книг.</p>
                 <div class="hero-actions">
                   <button class="landing-btn primary" data-action="open-auth">
                     <span>Войти</span>
@@ -102,7 +114,9 @@
                       <span class="phone-dot"></span>
                     </div>
                     <div class="phone-card phone-card--book">
-                      <div class="phone-book-cover photo" style="background-image:url('https://kazneb.kz/FileStore/dataFiles/0a/36/1679475/content/bigcover.png?time=1769409214929&key=c700b43a816ed2777313257b5c3d5c24');"></div>
+                      <div class="phone-book-cover photo"
+                        style="background-image:url('https://kazneb.kz/FileStore/dataFiles/0a/36/1679475/content/bigcover.png?time=1769409214929&key=c700b43a816ed2777313257b5c3d5c24');">
+                      </div>
                       <div class="phone-book-info">
                         <div class="phone-book-title">Красная книга Казахстана</div>
                         <div class="phone-book-author">Коллектив авторов</div>
@@ -113,7 +127,8 @@
                       </div>
                     </div>
                     <div class="phone-card phone-card--book">
-                      <div class="phone-book-cover photo" style="background-image:url('https://mylibrary.kz/wp-content/uploads/2024/03/1.jpg');"></div>
+                      <div class="phone-book-cover photo"
+                        style="background-image:url('https://mylibrary.kz/wp-content/uploads/2024/03/1.jpg');"></div>
                       <div class="phone-book-info">
                         <div class="phone-book-title">Слова назидания</div>
                         <div class="phone-book-author">Абай Кунанбаев</div>
@@ -302,7 +317,8 @@
                 <span>Войти</span>
                 <i class="fas fa-arrow-right"></i>
               </button>
-              <div class="form-hint">Нет аккаунта? <button type="button" class="link-button" data-action="show-register">Зарегистрироваться</button></div>
+              <div class="form-hint">Нет аккаунта? <button type="button" class="link-button"
+                  data-action="show-register">Зарегистрироваться</button></div>
             </form>
             <form class="form hidden" data-form="register">
               <div class="form-group">
@@ -344,7 +360,8 @@
                 <span>Создать аккаунт</span>
                 <i class="fas fa-arrow-right"></i>
               </button>
-              <div class="form-hint">Уже есть аккаунт? <button type="button" class="link-button" data-action="show-login">Войти</button></div>
+              <div class="form-hint">Уже есть аккаунт? <button type="button" class="link-button"
+                  data-action="show-login">Войти</button></div>
             </form>
           </div>
         </div>
@@ -373,65 +390,6 @@
             <button class="secondary-button" data-action="catalog-prev">Назад</button>
             <span data-text="catalog-page">1</span>
             <button class="secondary-button" data-action="catalog-next">Вперед</button>
-          </div>
-          
-          <div class="modal hidden" data-modal="book-detail">
-            <div class="modal-backdrop" data-action="close-book-detail"></div>
-            <div class="modal-card modal-fullscreen book-detail-modal">
-              <div class="modal-header">
-                <h3 data-text="book-detail-title">Информация о книге</h3>
-                <button class="modal-close" data-action="close-book-detail"><i class="fas fa-times"></i></button>
-              </div>
-              <div class="book-detail-content">
-                <div class="book-detail-left">
-                  <div class="book-detail-cover" data-slot="book-detail-cover">
-                    <i class="fas fa-book"></i>
-                  </div>
-                  <div class="book-detail-actions">
-                    <button class="primary-button" data-action="take-book-detail">
-                      <i class="fas fa-hand-holding"></i> Взять
-                    </button>
-                    <button class="secondary-button" data-action="toggle-favorite-detail">
-                      <i class="far fa-heart"></i> В избранное
-                    </button>
-                  </div>
-                </div>
-                <div class="book-detail-right">
-                  <div class="book-detail-info">
-                    <h2 class="book-detail-name" data-text="book-detail-name"></h2>
-                    <p class="book-detail-author" data-text="book-detail-author"></p>
-                    <div class="book-detail-meta">
-                      <span class="meta-badge"><i class="fas fa-calendar"></i> <span data-text="book-detail-year"></span></span>
-                      <span class="meta-badge"><i class="fas fa-tag"></i> <span data-text="book-detail-genre"></span></span>
-                      <span class="meta-badge"><i class="fas fa-folder"></i> <span data-text="book-detail-category"></span></span>
-                    </div>
-                    <div class="book-detail-availability">
-                      <div class="availability-indicator available">
-                        <i class="fas fa-check-circle"></i>
-                        <span>В наличии: <strong data-text="book-detail-available">0</strong> из <span data-text="book-detail-total">0</span></span>
-                      </div>
-                      <span class="inv-number">Инв. № <span data-text="book-detail-inv"></span></span>
-                    </div>
-                    <div class="book-detail-description">
-                      <h4>Описание</h4>
-                      <p data-text="book-detail-desc">Описание отсутствует</p>
-                    </div>
-                  </div>
-                  <div class="book-location-section">
-                    <h4><i class="fas fa-map-marker-alt"></i> Расположение в библиотеке</h4>
-                    <div class="bookshelf-visual-wide" data-slot="bookshelf-visual">
-                      <div class="bookshelf-wide" data-slot="student-bookshelf"></div>
-                      <p class="location-text" data-text="book-detail-location">Расположение не указано</p>
-                    </div>
-                  </div>
-                  <div class="book-detail-qr" data-slot="book-detail-qr">
-                    <h4><i class="fas fa-qrcode"></i> QR-код книги</h4>
-                    <div data-slot="book-qr-image"></div>
-                    <span>Отсканируйте для быстрого доступа</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -793,8 +751,152 @@
     </div>
   </div>
 
+  <div class="modal hidden" data-modal="book-detail">
+    <div class="modal-backdrop" data-action="close-book-detail"></div>
+    <div class="modal-card modal-fullscreen book-detail-modal">
+      <div class="modal-header">
+        <h3 data-text="book-detail-title">Информация о книге</h3>
+        <button class="modal-close" data-action="close-book-detail"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="book-detail-content">
+        <div class="book-detail-left">
+          <div class="book-detail-cover" data-slot="book-detail-cover">
+            <i class="fas fa-book"></i>
+          </div>
+          <div class="book-detail-actions">
+            <button class="primary-button" data-action="take-book-detail">
+              <i class="fas fa-hand-holding"></i> Взять
+            </button>
+            <button class="secondary-button" data-action="toggle-favorite-detail">
+              <i class="far fa-heart"></i> В избранное
+            </button>
+          </div>
+        </div>
+        <div class="book-detail-right">
+          <div class="book-detail-info">
+            <h2 class="book-detail-name" data-text="book-detail-name"></h2>
+            <p class="book-detail-author" data-text="book-detail-author"></p>
+            <div class="book-detail-meta">
+              <span class="meta-badge"><i class="fas fa-calendar"></i> <span data-text="book-detail-year"></span></span>
+              <span class="meta-badge"><i class="fas fa-tag"></i> <span data-text="book-detail-genre"></span></span>
+              <span class="meta-badge"><i class="fas fa-folder"></i> <span
+                  data-text="book-detail-category"></span></span>
+            </div>
+            <div class="book-detail-availability">
+              <div class="availability-indicator available">
+                <i class="fas fa-check-circle"></i>
+                <span>В наличии: <strong data-text="book-detail-available">0</strong> из <span
+                    data-text="book-detail-total">0</span></span>
+              </div>
+              <span class="inv-number">Инв. № <span data-text="book-detail-inv"></span></span>
+            </div>
+            <div class="book-detail-description">
+              <h4>Описание</h4>
+              <p data-text="book-detail-desc">Описание отсутствует</p>
+            </div>
+          </div>
+          <div class="book-location-section">
+            <h4><i class="fas fa-map-marker-alt"></i> Расположение в библиотеке</h4>
+            <div class="bookshelf-visual-wide" data-slot="bookshelf-visual">
+              <div class="bookshelf-wide" data-slot="student-bookshelf"></div>
+              <p class="location-text" data-text="book-detail-location">Расположение не указано</p>
+            </div>
+          </div>
+          <div class="book-detail-qr" data-slot="book-detail-qr">
+            <h4><i class="fas fa-qrcode"></i> QR-код книги</h4>
+            <div data-slot="book-qr-image"></div>
+            <span>Отсканируйте для быстрого доступа</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно QR-кода для выдачи -->
+  <div class="modal hidden" data-modal="issue-qr">
+    <div class="modal-backdrop" data-action="close-issue-qr"></div>
+    <div class="modal-card issue-qr-modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-qrcode"></i> QR-код для выдачи</h3>
+        <button class="modal-close" data-action="close-issue-qr"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="issue-qr-content">
+        <!-- Режим онлайн -->
+        <div class="issue-mode issue-mode-online" data-issue-mode="online">
+          <div class="issue-mode-badge online">
+            <i class="fas fa-wifi"></i> Онлайн режим
+          </div>
+          <p class="issue-hint">Покажите этот QR-код библиотекарю</p>
+          <div class="issue-qr-image" data-slot="issue-qr-image"></div>
+          <div class="issue-info">
+            <div class="issue-book-info">
+              <i class="fas fa-book"></i>
+              <span data-text="issue-book-title">—</span>
+            </div>
+            <div class="issue-timer">
+              <i class="fas fa-clock"></i>
+              Действует <span data-text="issue-expires">30</span> минут
+            </div>
+          </div>
+        </div>
+
+        <!-- Режим полуоффлайн -->
+        <div class="issue-mode issue-mode-semi hidden" data-issue-mode="semi">
+          <div class="issue-mode-badge semi">
+            <i class="fas fa-wifi-slash"></i> Полуоффлайн режим
+          </div>
+          <p class="issue-hint">Нет связи с сервером. Выполните два шага:</p>
+          <div class="issue-steps">
+            <div class="issue-step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <div class="step-title">Покажите свой QR-код</div>
+                <div class="issue-qr-image issue-qr-student" data-slot="issue-qr-student"></div>
+              </div>
+            </div>
+            <div class="issue-step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <div class="step-title">Наведите камеру на QR книги</div>
+                <div class="step-desc">Физически покажите книгу библиотекарю для сканирования</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Режим полный оффлайн -->
+        <div class="issue-mode issue-mode-offline hidden" data-issue-mode="offline">
+          <div class="issue-mode-badge offline">
+            <i class="fas fa-signal-slash"></i> Оффлайн режим
+          </div>
+          <p class="issue-hint">Нет данных. Выполните два шага:</p>
+          <div class="issue-steps">
+            <div class="issue-step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <div class="step-title">Покажите книгу библиотекарю</div>
+                <div class="step-desc">Библиотекарь отсканирует QR-код на книге</div>
+              </div>
+            </div>
+            <div class="issue-step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <div class="step-title">Продиктуйте ваши данные</div>
+                <div class="step-desc">
+                  ФИО или номер студенческого билета.<br>
+                  <span class="step-hint">Библиотекарь найдёт вас в системе вручную</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" data-toast></div>
 
   <script src="app.js"></script>
 </body>
+
 </html>
