@@ -1,0 +1,20 @@
+name: librovtk4_mobile
+description: Mobile app for LibroVTK4
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.1.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.2.1
+  provider: ^6.1.2
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^6.0.3
+  intl: ^0.19.0
+
+flutter:
+  uses-material-design: true
