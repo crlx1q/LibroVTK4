@@ -51,6 +51,11 @@
         <button class="nav-item" data-view="catalog"><i class="fas fa-th-large"></i><span>Каталог</span></button>
         <button class="nav-item" data-view="student-loans"><i class="fas fa-book"></i><span>Мои книги</span></button>
         <button class="nav-item" data-view="favorites"><i class="fas fa-heart"></i><span>Избранное</span></button>
+        <button class="nav-item" data-view="student-requests">
+          <i class="fas fa-bell"></i>
+          <span>Запросы</span>
+          <span class="nav-badge" data-badge="requests"></span>
+        </button>
         <button class="nav-item" data-view="student-qr"><i class="fas fa-qrcode"></i><span>Мой QR</span></button>
         <button class="nav-item" data-view="librarian-books"><i class="fas fa-list"></i><span>Книги</span></button>
         <button class="nav-item" data-view="librarian-issue"><i class="fas fa-camera"></i><span>Выдача по
@@ -415,6 +420,16 @@
             <h2>Избранное</h2>
           </div>
           <div class="grid" data-list="favorites"></div>
+        </section>
+
+        <section class="view" data-section="student-requests">
+          <div class="section-header">
+            <h2>Мои запросы</h2>
+            <button class="secondary-button" data-action="student-requests-refresh">
+              <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+          </div>
+          <div class="list" data-list="student-requests"></div>
         </section>
 
         <section class="view" data-section="student-qr">
@@ -864,23 +879,27 @@
       </div>
       <div class="issue-qr-content">
         <!-- Режим онлайн -->
-        <div class="issue-mode issue-mode-online" data-issue-mode="online">
-          <div class="issue-mode-badge online">
-            <i class="fas fa-wifi"></i> Онлайн режим
-          </div>
-          <p class="issue-hint">Покажите этот QR-код библиотекарю</p>
-          <div class="issue-qr-image" data-slot="issue-qr-image"></div>
-          <div class="issue-info">
-            <div class="issue-book-info">
-              <i class="fas fa-book"></i>
-              <span data-text="issue-book-title">—</span>
+          <div class="issue-mode issue-mode-online" data-issue-mode="online">
+            <div class="issue-mode-badge online">
+              <i class="fas fa-wifi"></i> Онлайн режим
             </div>
-            <div class="issue-timer">
-              <i class="fas fa-clock"></i>
-              Действует <span data-text="issue-expires">30</span> минут
+            <p class="issue-hint">Покажите этот QR-код библиотекарю</p>
+            <div class="issue-qr-image" data-slot="issue-qr-image"></div>
+            <div class="issue-info">
+              <div class="issue-book-info">
+                <i class="fas fa-book"></i>
+                <span data-text="issue-book-title">—</span>
+              </div>
+              <div class="issue-timer">
+                <i class="fas fa-clock"></i>
+                Действует <span data-text="issue-expires">30</span> минут
+              </div>
             </div>
+            <button class="primary-button issue-request-btn" data-action="send-request">
+              <i class="fas fa-paper-plane"></i>
+              <span>Отправить запрос библиотекарю</span>
+            </button>
           </div>
-        </div>
 
         <!-- Режим полуоффлайн -->
         <div class="issue-mode issue-mode-semi hidden" data-issue-mode="semi">
@@ -932,6 +951,58 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" data-modal="request-issue">
+    <div class="modal-backdrop" data-action="close-request-issue"></div>
+    <div class="modal-card request-issue-modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-clipboard-check"></i> Обработка запроса</h3>
+        <button class="modal-close" data-action="close-request-issue"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="request-issue-body">
+        <div class="request-issue-info">
+          <div class="info-row">
+            <span>Книга</span>
+            <strong data-text="request-book-title">—</strong>
+          </div>
+          <div class="info-row">
+            <span>Автор</span>
+            <strong data-text="request-book-author">—</strong>
+          </div>
+          <div class="info-row">
+            <span>Студент</span>
+            <strong data-text="request-student-name">—</strong>
+          </div>
+          <div class="info-row">
+            <span>Контакты</span>
+            <strong data-text="request-student-email">—</strong>
+          </div>
+          <div class="info-row">
+            <span>Группа</span>
+            <strong data-text="request-student-group">—</strong>
+          </div>
+          <div class="info-row">
+            <span>Расположение</span>
+            <strong data-text="request-book-location">—</strong>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Срок возврата</label>
+          <input type="date" data-input="request-due-date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-button" data-action="decline-request-modal">
+          <i class="fas fa-ban"></i>
+          <span>Отклонить</span>
+        </button>
+        <button class="primary-button" data-action="confirm-request-issue">
+          <i class="fas fa-check"></i>
+          <span>Подтвердить выдачу</span>
+        </button>
       </div>
     </div>
   </div>
