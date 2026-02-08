@@ -126,6 +126,7 @@ const ensureAdmin = async () => {
       blocked: false,
       qrCodeDataUrl: "",
       phone: "",
+      iin: "",
       avatarUrl: ""
     });
     saveData(data);
@@ -141,6 +142,7 @@ const sanitizeUser = (user) => ({
   registeredAt: user.registeredAt,
   blocked: user.blocked,
   phone: user.phone || "",
+  iin: user.iin || "",
   avatarUrl: user.avatarUrl || ""
 });
 
@@ -172,8 +174,8 @@ const updateBookAvailability = (book) => {
 
 app.post("/api/auth/register", async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, group, phone } = req.body;
-  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(phone)) {
+  const { fullName, email, password, group, phone, iin } = req.body;
+  if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(phone) || !validateRequired(iin)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
   if (data.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
@@ -187,12 +189,13 @@ app.post("/api/auth/register", async (req, res) => {
     role: "student",
     group: group || "",
     phone: phone.trim(),
+    iin: String(iin || "").trim(),
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
     blocked: false,
     qrCodeDataUrl: "",
-    avatarUrl: ""
+      avatarUrl: ""
   };
   data.users.push(user);
   saveData(data);
@@ -270,7 +273,7 @@ app.get("/api/admin/users", authRequired, roleRequired(["admin"]), (req, res) =>
 
 app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, res) => {
   const data = loadData();
-  const { fullName, email, password, role, group, phone } = req.body;
+  const { fullName, email, password, role, group, phone, iin } = req.body;
   if (!validateRequired(fullName) || !isEmail(email) || !validatePassword(password) || !validateRequired(role)) {
     return res.status(400).json({ message: "Проверьте корректность данных" });
   }
@@ -285,6 +288,7 @@ app.post("/api/admin/users", authRequired, roleRequired(["admin"]), async (req, 
     role,
     group: group || "",
     phone: phone || "",
+    iin: iin || "",
     registeredAt: new Date().toISOString(),
     passwordHash,
     refreshTokens: [],
@@ -303,7 +307,7 @@ const updateUser = (req, res) => {
   if (!user) {
     return res.status(404).json({ message: "Пользователь не найден" });
   }
-  const { role, blocked, fullName, group, phone } = req.body;
+  const { role, blocked, fullName, group, phone, iin } = req.body;
   if (role) {
     user.role = role;
   }
@@ -318,6 +322,9 @@ const updateUser = (req, res) => {
   }
   if (typeof phone === "string") {
     user.phone = phone;
+  }
+  if (typeof iin === "string") {
+    user.iin = iin;
   }
   saveData(data);
   return res.json(sanitizeUser(user));
