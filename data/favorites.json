@@ -1,0 +1,37 @@
+[
+  {
+    "id": "fe243e2f-7f5a-4c3e-9730-155496a681ab",
+    "studentId": "218d7bba-cd76-4206-9fec-96065e5bdd66",
+    "bookId": "3f58e44e-764f-453b-a606-219b8e38fe10"
+  },
+  {
+    "id": "79f9106d-ad74-424a-9b16-44e46435d35f",
+    "studentId": "218d7bba-cd76-4206-9fec-96065e5bdd66",
+    "bookId": "9e32fcdc-76a9-4e78-8921-7f339ff294c9"
+  },
+  {
+    "id": "4bbab11a-fcc9-49f2-b9a9-e669a4af38bf",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "9190477b-a86e-41c5-977f-97dcbcd6967c"
+  },
+  {
+    "id": "2ff30fff-63dc-416d-ad46-430a346c65df",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "0600f312-c15a-427c-9924-397a40f4be2a"
+  },
+  {
+    "id": "0e21833e-5362-4c78-87b1-1aabfe2caa16",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "3f58e44e-764f-453b-a606-219b8e38fe10"
+  },
+  {
+    "id": "9cfeb66d-53da-4e16-a989-3f58355fa3ae",
+    "studentId": "e14faba9-e232-474e-aa41-8d339e654cbf",
+    "bookId": "9190477b-a86e-41c5-977f-97dcbcd6967c"
+  },
+  {
+    "id": "564e4de5-81fa-423f-b316-675798c94832",
+    "studentId": "e14faba9-e232-474e-aa41-8d339e654cbf",
+    "bookId": "3f58e44e-764f-453b-a606-219b8e38fe10"
+  }
+]

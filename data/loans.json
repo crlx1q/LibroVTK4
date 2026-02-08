@@ -1,0 +1,29 @@
+[
+  {
+    "id": "97dcb31f-5361-400b-8f82-e516ab44bdca",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "966647b4-2465-43cf-ba3a-ac30c9784435",
+    "issueDate": "2026-01-28T15:29:37.731Z",
+    "dueDate": "2026-01-30",
+    "returnDate": "2026-01-28T15:34:12.786Z",
+    "status": "возвращена"
+  },
+  {
+    "id": "9c1a5c49-c616-48d7-9618-0bddfe96d730",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "3f58e44e-764f-453b-a606-219b8e38fe10",
+    "issueDate": "2026-01-30T07:06:10.485Z",
+    "dueDate": "2026-01-31",
+    "returnDate": "2026-01-30T08:34:36.125Z",
+    "status": "возвращена"
+  },
+  {
+    "id": "11b5cf2e-deaf-4045-8bda-69bb003995b8",
+    "studentId": "6520f532-9ef1-49f1-8447-91b0986addf4",
+    "bookId": "0600f312-c15a-427c-9924-397a40f4be2a",
+    "issueDate": "2026-01-30T08:34:10.925Z",
+    "dueDate": "2026-01-30",
+    "returnDate": "",
+    "status": "выдана"
+  }
+]
