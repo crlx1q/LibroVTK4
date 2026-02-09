@@ -1,0 +1,26 @@
+{
+  "rooms": [
+    {
+      "id": "general-1",
+      "type": "general",
+      "title": "Общий чат 1",
+      "participants": [],
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "general-2",
+      "type": "general",
+      "title": "Общий чат 2",
+      "participants": [],
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "general-3",
+      "type": "general",
+      "title": "Общий чат 3",
+      "participants": [],
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "messages": []
+}

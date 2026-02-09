@@ -39,6 +39,112 @@ class UserProfile {
   }
 }
 
+class ChatUser {
+  const ChatUser({
+    required this.id,
+    required this.fullName,
+    required this.role,
+  });
+
+  final String id;
+  final String fullName;
+  final String role;
+
+  factory ChatUser.fromJson(Map<String, dynamic> json) {
+    return ChatUser(
+      id: json['id']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? '',
+      role: json['role']?.toString() ?? '',
+    );
+  }
+}
+
+class ChatMessage {
+  const ChatMessage({
+    required this.id,
+    required this.roomId,
+    required this.text,
+    required this.createdAt,
+    required this.sender,
+  });
+
+  final String id;
+  final String roomId;
+  final String text;
+  final String createdAt;
+  final ChatUser? sender;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id']?.toString() ?? '',
+      roomId: json['roomId']?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
+      createdAt: json['createdAt']?.toString() ?? '',
+      sender: json['sender'] is Map<String, dynamic> ? ChatUser.fromJson(json['sender']) : null,
+    );
+  }
+}
+
+class ChatRoom {
+  const ChatRoom({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.participants,
+    required this.createdAt,
+    required this.lastMessage,
+  });
+
+  final String id;
+  final String type;
+  final String title;
+  final List<ChatUser> participants;
+  final String createdAt;
+  final ChatMessage? lastMessage;
+
+  factory ChatRoom.fromJson(Map<String, dynamic> json) {
+    return ChatRoom(
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      participants: (json['participants'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatUser.fromJson)
+          .toList(),
+      createdAt: json['createdAt']?.toString() ?? '',
+      lastMessage: json['lastMessage'] is Map<String, dynamic>
+          ? ChatMessage.fromJson(json['lastMessage'])
+          : null,
+    );
+  }
+}
+
+class ChatOverview {
+  const ChatOverview({
+    required this.rooms,
+    required this.contacts,
+    required this.canViewAll,
+  });
+
+  final List<ChatRoom> rooms;
+  final List<ChatUser> contacts;
+  final bool canViewAll;
+
+  factory ChatOverview.fromJson(Map<String, dynamic> json) {
+    return ChatOverview(
+      rooms: (json['rooms'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatRoom.fromJson)
+          .toList(),
+      contacts: (json['contacts'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatUser.fromJson)
+          .toList(),
+      canViewAll: json['canViewAll'] == true,
+    );
+  }
+}
+
 class Book {
   const Book({
     required this.id,
