@@ -413,6 +413,415 @@ class StudentQrScreen extends StatelessWidget {
   }
 }
 
+class ChatsScreen extends StatefulWidget {
+  const ChatsScreen({super.key});
+
+  @override
+  State<ChatsScreen> createState() => _ChatsScreenState();
+}
+
+class _ChatsScreenState extends State<ChatsScreen> {
+  ChatOverview? _overview;
+  ChatRoom? _activeRoom;
+  List<ChatMessage> _messages = [];
+  bool _loading = false;
+  bool _showDetail = false;
+  final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
+  String? _selectedContact;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOverview();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadOverview() async {
+    setState(() => _loading = true);
+    try {
+      final overview = await context.read<AppState>().fetchChatOverview();
+      ChatRoom? active = _activeRoom;
+      if (active == null && overview.rooms.isNotEmpty) {
+        active = overview.rooms.first;
+      } else if (active != null) {
+        active = overview.rooms.firstWhere(
+          (room) => room.id == active!.id,
+          orElse: () => active!,
+        );
+      }
+      setState(() {
+        _overview = overview;
+        _activeRoom = active;
+      });
+      if (active != null) {
+        await _loadMessages(active.id);
+      }
+    } on ApiException catch (error) {
+      _showSnack(error.message);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadMessages(String roomId) async {
+    setState(() => _loading = true);
+    try {
+      final items = await context.read<AppState>().fetchChatMessages(roomId);
+      setState(() {
+        _messages = items;
+      });
+      _scrollToBottom();
+    } on ApiException catch (error) {
+      _showSnack(error.message);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _createChat() async {
+    final contact = _selectedContact;
+    if (contact == null || contact.isEmpty) {
+      _showSnack('Выберите контакт');
+      return;
+    }
+    try {
+      final roomId = await context.read<AppState>().createChatRoom(contact);
+      await _loadOverview();
+      final room = _overview?.rooms.firstWhere(
+        (item) => item.id == roomId,
+        orElse: () => _overview!.rooms.first,
+      );
+      if (room != null) {
+        _selectRoom(room);
+      }
+      setState(() => _selectedContact = null);
+    } on ApiException catch (error) {
+      _showSnack(error.message);
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_activeRoom == null) {
+      _showSnack('Выберите чат');
+      return;
+    }
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    _messageController.clear();
+    try {
+      final message = await context.read<AppState>().sendChatMessage(_activeRoom!.id, text);
+      setState(() {
+        _messages = [..._messages, message];
+      });
+      _scrollToBottom();
+      await _loadOverview();
+    } on ApiException catch (error) {
+      _showSnack(error.message);
+    }
+  }
+
+  void _selectRoom(ChatRoom room) {
+    setState(() {
+      _activeRoom = room;
+      _showDetail = true;
+    });
+    _loadMessages(room.id);
+  }
+
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = _overview;
+    final isNarrow = MediaQuery.of(context).size.width < 720;
+    final rooms = overview?.rooms ?? [];
+    final generalRooms = rooms.where((room) => room.type == 'general').toList();
+    final directRooms = rooms.where((room) => room.type == 'direct').toList();
+
+    final listPanel = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Чаты', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 8),
+        if (overview?.canViewAll == true)
+          Row(
+            children: [
+              Icon(Icons.shield_outlined, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Администратор видит все чаты')),
+            ],
+          ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedContact,
+          decoration: const InputDecoration(
+            labelText: 'Начать личный чат',
+            border: OutlineInputBorder(),
+          ),
+          items: (overview?.contacts ?? [])
+              .map((contact) => DropdownMenuItem(
+                    value: contact.id,
+                    child: Text('${contact.fullName} · ${contact.role}'),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _selectedContact = value),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _createChat,
+          icon: const Icon(Icons.add_comment),
+          label: const Text('Создать чат'),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: ListView(
+            children: [
+              _ChatGroup(
+                title: 'Общие чаты',
+                rooms: generalRooms,
+                activeRoom: _activeRoom,
+                onSelect: _selectRoom,
+              ),
+              const SizedBox(height: 12),
+              _ChatGroup(
+                title: 'Личные чаты',
+                rooms: directRooms,
+                activeRoom: _activeRoom,
+                onSelect: _selectRoom,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final detailPanel = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (isNarrow)
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _showDetail = false),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _chatTitle(context, _activeRoom),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (_activeRoom != null)
+                    Text(
+                      _chatSubtitle(_activeRoom!),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: _activeRoom == null
+                ? const Center(child: Text('Выберите чат'))
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMine = message.sender?.id == context.read<AppState>().user?.id;
+                      return Align(
+                        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMine
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                : Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              Text(message.text),
+                              const SizedBox(height: 4),
+                              Text(
+                                _messageMeta(message),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: const InputDecoration(
+                  hintText: 'Напишите сообщение',
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _sendMessage(),
+                enabled: _activeRoom != null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.send),
+              onPressed: _activeRoom == null ? null : _sendMessage,
+            ),
+          ],
+        ),
+      ],
+    );
+
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: isNarrow
+              ? (_showDetail ? detailPanel : listPanel)
+              : Row(
+                  children: [
+                    Expanded(flex: 4, child: listPanel),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 6, child: detailPanel),
+                  ],
+                ),
+        ),
+        if (_loading)
+          Container(
+            color: Colors.black12,
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    );
+  }
+
+  String _chatTitle(BuildContext context, ChatRoom? room) {
+    if (room == null) return 'Чаты';
+    if (room.type == 'general') return room.title;
+    final userId = context.read<AppState>().user?.id ?? '';
+    final other = room.participants.firstWhere(
+      (participant) => participant.id != userId,
+      orElse: () => room.participants.isNotEmpty ? room.participants.first : const ChatUser(id: '', fullName: '', role: ''),
+    );
+    return other.fullName.isNotEmpty ? other.fullName : 'Личный чат';
+  }
+
+  String _chatSubtitle(ChatRoom room) {
+    if (room.type == 'general') {
+      return 'Общий чат для всех пользователей';
+    }
+    final names = room.participants.map((participant) => participant.fullName).where((name) => name.isNotEmpty).toList();
+    if (names.isEmpty) {
+      return 'Личный чат';
+    }
+    return names.join(' · ');
+  }
+
+  String _messageMeta(ChatMessage message) {
+    final sender = message.sender?.fullName ?? 'Неизвестно';
+    if (message.createdAt.isEmpty) return sender;
+    final formatted = DateFormat('dd MMM, HH:mm', 'ru').format(DateTime.parse(message.createdAt));
+    return '$sender · $formatted';
+  }
+}
+
+class _ChatGroup extends StatelessWidget {
+  const _ChatGroup({
+    required this.title,
+    required this.rooms,
+    required this.activeRoom,
+    required this.onSelect,
+  });
+
+  final String title;
+  final List<ChatRoom> rooms;
+  final ChatRoom? activeRoom;
+  final ValueChanged<ChatRoom> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
+        if (rooms.isEmpty)
+          const Text('Нет чатов'),
+        ...rooms.map((room) {
+          final isActive = room.id == activeRoom?.id;
+          final subtitle = room.lastMessage != null
+              ? '${room.lastMessage!.sender?.fullName ?? 'Неизвестно'}: ${room.lastMessage!.text}'
+              : room.type == 'general'
+                  ? 'Общий чат · сообщений пока нет'
+                  : 'Сообщений пока нет';
+          return Card(
+            color: isActive ? Theme.of(context).colorScheme.primaryContainer : null,
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              title: Text(room.type == 'general' ? room.title : _roomTitle(context, room)),
+              subtitle: Text(subtitle),
+              onTap: () => onSelect(room),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  String _roomTitle(BuildContext context, ChatRoom room) {
+    final userId = context.read<AppState>().user?.id ?? '';
+    final other = room.participants.firstWhere(
+      (participant) => participant.id != userId,
+      orElse: () => room.participants.isNotEmpty ? room.participants.first : const ChatUser(id: '', fullName: '', role: ''),
+    );
+    return other.fullName.isNotEmpty ? other.fullName : 'Личный чат';
+  }
+}
+
 class LibrarianBooksScreen extends StatefulWidget {
   const LibrarianBooksScreen({super.key});
 

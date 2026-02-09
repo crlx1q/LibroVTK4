@@ -85,7 +85,8 @@ const loadData = () => ({
   books: readJson("books.json", []),
   loans: readJson("loans.json", []),
   favorites: readJson("favorites.json", []),
-  requests: readJson("requests.json", [])
+  requests: readJson("requests.json", []),
+  chats: readJson("chats.json", { rooms: [], messages: [] })
 });
 
 const saveData = (data) => {
@@ -94,6 +95,7 @@ const saveData = (data) => {
   writeJson("loans.json", data.loans);
   writeJson("favorites.json", data.favorites);
   writeJson("requests.json", data.requests);
+  writeJson("chats.json", data.chats);
 };
 
 // Хранилище временных QR-кодов для выдачи (TTL 30 минут)
@@ -145,6 +147,48 @@ const sanitizeUser = (user) => ({
   iin: user.iin || "",
   avatarUrl: user.avatarUrl || ""
 });
+
+const ensureChatRooms = (data) => {
+  if (!data.chats) {
+    data.chats = { rooms: [], messages: [] };
+  }
+  if (!Array.isArray(data.chats.rooms)) data.chats.rooms = [];
+  if (!Array.isArray(data.chats.messages)) data.chats.messages = [];
+  const defaults = [
+    { id: "general-1", title: "Общий чат 1" },
+    { id: "general-2", title: "Общий чат 2" },
+    { id: "general-3", title: "Общий чат 3" }
+  ];
+  let changed = false;
+  defaults.forEach((room) => {
+    if (!data.chats.rooms.some((item) => item.id === room.id)) {
+      data.chats.rooms.push({
+        id: room.id,
+        type: "general",
+        title: room.title,
+        participants: [],
+        createdAt: new Date().toISOString()
+      });
+      changed = true;
+    }
+  });
+  return changed;
+};
+
+const getSafeUser = (usersMap, id) => {
+  const user = usersMap.get(id);
+  if (!user) {
+    return { id, fullName: "Пользователь удален", role: "", group: "", email: "", blocked: false, phone: "", iin: "", avatarUrl: "" };
+  }
+  return sanitizeUser(user);
+};
+
+const canAccessRoom = (room, user) => {
+  if (!room || !user) return false;
+  if (user.role === "admin") return true;
+  if (room.type === "general") return true;
+  return (room.participants || []).includes(user.id);
+};
 
 const computeLoanStatus = (loan) => {
   if (loan.status === "возвращена") {
@@ -946,12 +990,130 @@ app.get("/api/qr/resolve", authRequired, roleRequired(["librarian", "admin"]), (
   }
 });
 
+app.get("/api/chats/rooms", authRequired, (req, res) => {
+  const data = loadData();
+  const changed = ensureChatRooms(data);
+  if (changed) saveData(data);
+  const userId = req.user.id;
+  const rooms = data.chats.rooms.filter((room) => canAccessRoom(room, req.user));
+  const usersMap = new Map(data.users.map((user) => [user.id, user]));
+  const lastMessageMap = {};
+  data.chats.messages.forEach((message) => {
+    const prev = lastMessageMap[message.roomId];
+    if (!prev || new Date(message.createdAt) > new Date(prev.createdAt)) {
+      lastMessageMap[message.roomId] = message;
+    }
+  });
+  const roomSummaries = rooms.map((room) => ({
+    id: room.id,
+    type: room.type,
+    title: room.title,
+    participants: (room.participants || []).map((id) => getSafeUser(usersMap, id)),
+    createdAt: room.createdAt,
+    lastMessage: lastMessageMap[room.id]
+      ? {
+          text: lastMessageMap[room.id].text,
+          createdAt: lastMessageMap[room.id].createdAt,
+          sender: getSafeUser(usersMap, lastMessageMap[room.id].senderId)
+        }
+      : null
+  }));
+  const contacts = data.users.filter((user) => user.id !== userId).map(sanitizeUser);
+  return res.json({ rooms: roomSummaries, contacts, canViewAll: req.user.role === "admin" });
+});
+
+app.post("/api/chats/rooms", authRequired, (req, res) => {
+  const data = loadData();
+  ensureChatRooms(data);
+  const { userId } = req.body;
+  if (!userId || userId === req.user.id) {
+    return res.status(400).json({ message: "Выберите пользователя для чата" });
+  }
+  const targetUser = data.users.find((user) => user.id === userId);
+  if (!targetUser) {
+    return res.status(404).json({ message: "Пользователь не найден" });
+  }
+  const existing = data.chats.rooms.find(
+    (room) =>
+      room.type === "direct" &&
+      (room.participants || []).includes(req.user.id) &&
+      (room.participants || []).includes(userId)
+  );
+  if (existing) {
+    return res.json({ roomId: existing.id });
+  }
+  const room = {
+    id: crypto.randomUUID(),
+    type: "direct",
+    title: "",
+    participants: [req.user.id, userId],
+    createdAt: new Date().toISOString()
+  };
+  data.chats.rooms.push(room);
+  saveData(data);
+  return res.status(201).json({ roomId: room.id });
+});
+
+app.get("/api/chats/rooms/:roomId/messages", authRequired, (req, res) => {
+  const data = loadData();
+  ensureChatRooms(data);
+  const room = data.chats.rooms.find((item) => item.id === req.params.roomId);
+  if (!canAccessRoom(room, req.user)) {
+    return res.status(403).json({ message: "Недостаточно прав" });
+  }
+  const usersMap = new Map(data.users.map((user) => [user.id, user]));
+  const messages = data.chats.messages
+    .filter((message) => message.roomId === room.id)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .map((message) => ({
+      id: message.id,
+      roomId: message.roomId,
+      text: message.text,
+      createdAt: message.createdAt,
+      sender: getSafeUser(usersMap, message.senderId)
+    }));
+  return res.json({ room: { id: room.id, type: room.type, title: room.title, participants: room.participants || [] }, messages });
+});
+
+app.post("/api/chats/rooms/:roomId/messages", authRequired, (req, res) => {
+  const data = loadData();
+  ensureChatRooms(data);
+  const room = data.chats.rooms.find((item) => item.id === req.params.roomId);
+  if (!canAccessRoom(room, req.user)) {
+    return res.status(403).json({ message: "Недостаточно прав" });
+  }
+  const text = String(req.body.text || "").trim();
+  if (!text) {
+    return res.status(400).json({ message: "Введите сообщение" });
+  }
+  const message = {
+    id: crypto.randomUUID(),
+    roomId: room.id,
+    senderId: req.user.id,
+    text,
+    createdAt: new Date().toISOString()
+  };
+  data.chats.messages.push(message);
+  saveData(data);
+  const usersMap = new Map(data.users.map((user) => [user.id, user]));
+  return res.status(201).json({
+    id: message.id,
+    roomId: message.roomId,
+    text: message.text,
+    createdAt: message.createdAt,
+    sender: getSafeUser(usersMap, message.senderId)
+  });
+});
+
 app.get("/api/health", (req, res) => {
   return res.json({ status: "ok" });
 });
 
 ensureAdmin()
   .then(async () => {
+    const data = loadData();
+    const changed = ensureChatRooms(data);
+    if (changed) saveData(data);
     const port = process.env.PORT || 10216;
     const { networkInterfaces } = await import("os");
     const nets = networkInterfaces();

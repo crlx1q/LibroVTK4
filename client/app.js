@@ -19,7 +19,12 @@ const state = {
   studentRequests: [],
   librarianRequests: [],
   manualBooks: [],
-  manualStudents: []
+  manualStudents: [],
+  chatRooms: [],
+  chatContacts: [],
+  chatMessages: [],
+  currentChatRoomId: null,
+  chatCanViewAll: false
 };
 
 const elements = {
@@ -209,7 +214,9 @@ const updateNavVisibility = () => {
     const studentViews = ["catalog", "student-loans", "favorites", "student-requests", "student-qr"];
     const librarianViews = ["librarian-books", "librarian-issue", "librarian-loans"];
     const adminViews = ["admin-users", "admin-stats", "admin-loans"];
+    const commonViews = ["chats"];
     const visible =
+      commonViews.includes(view) ||
       (role === "student" && studentViews.includes(view)) ||
       (role === "librarian" && librarianViews.includes(view)) ||
       (role === "admin" && adminViews.includes(view));
@@ -278,6 +285,241 @@ const refreshAccess = async () => {
   state.accessToken = data.accessToken;
   localStorage.setItem("accessToken", data.accessToken);
   return true;
+};
+
+const formatChatTime = (value) => {
+  if (!value) return "";
+  return new Date(value).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+};
+
+const setChatFocus = (focused) => {
+  const shell = document.querySelector("[data-chat-shell]");
+  if (!shell) return;
+  shell.classList.toggle("is-focused", focused);
+};
+
+const getChatRoomTitle = (room) => {
+  if (!room) return "Чат";
+  if (room.type === "general") return room.title || "Общий чат";
+  if (room.type === "direct") {
+    if (Array.isArray(room.participants)) {
+      const other = room.participants.find((participant) => participant.id !== state.user.id);
+      if (other) return other.fullName;
+      if (room.participants.length === 2) {
+        return `${room.participants[0].fullName} · ${room.participants[1].fullName}`;
+      }
+    }
+    return "Личный чат";
+  }
+  return room.title || "Чат";
+};
+
+const renderChatContacts = () => {
+  const select = document.querySelector("[data-chat-contact]");
+  if (!select) return;
+  select.innerHTML = `<option value="">Выберите контакт</option>`;
+  state.chatContacts.forEach((contact) => {
+    const option = document.createElement("option");
+    option.value = contact.id;
+    option.textContent = `${contact.fullName} · ${contact.role}`;
+    select.appendChild(option);
+  });
+};
+
+const renderChatRooms = () => {
+  const list = document.querySelector("[data-chat-list]");
+  if (!list) return;
+  const generalRooms = state.chatRooms.filter((room) => room.type === "general");
+  const directRooms = state.chatRooms.filter((room) => room.type === "direct");
+  list.innerHTML = "";
+  const renderGroup = (title, rooms) => {
+    const group = document.createElement("div");
+    group.className = "chat-group";
+    const header = document.createElement("div");
+    header.className = "chat-group-title";
+    header.textContent = title;
+    group.appendChild(header);
+    if (!rooms.length) {
+      const empty = document.createElement("div");
+      empty.className = "chat-empty";
+      empty.textContent = "Нет чатов";
+      group.appendChild(empty);
+      return group;
+    }
+    rooms.forEach((room) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "chat-room";
+      if (room.id === state.currentChatRoomId) {
+        button.classList.add("active");
+      }
+      button.dataset.chatId = room.id;
+      const titleEl = document.createElement("div");
+      titleEl.className = "chat-room-title";
+      titleEl.textContent = getChatRoomTitle(room);
+      const metaEl = document.createElement("div");
+      metaEl.className = "chat-room-meta";
+      if (room.lastMessage) {
+        metaEl.textContent = `${room.lastMessage.sender.fullName}: ${room.lastMessage.text}`;
+      } else {
+        metaEl.textContent = room.type === "general" ? "Общий чат · сообщений пока нет" : "Сообщений пока нет";
+      }
+      const timeEl = document.createElement("div");
+      timeEl.className = "chat-room-time";
+      timeEl.textContent = room.lastMessage ? formatChatTime(room.lastMessage.createdAt) : "";
+      button.appendChild(titleEl);
+      button.appendChild(metaEl);
+      button.appendChild(timeEl);
+      group.appendChild(button);
+    });
+    return group;
+  };
+  list.appendChild(renderGroup("Общие чаты", generalRooms));
+  list.appendChild(renderGroup("Личные чаты", directRooms));
+};
+
+const renderChatMessages = () => {
+  const container = document.querySelector("[data-chat-messages]");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!state.currentChatRoomId) {
+    container.innerHTML = "<div class='chat-empty'>Выберите чат, чтобы начать общение.</div>";
+    return;
+  }
+  state.chatMessages.forEach((message) => {
+    const bubble = document.createElement("div");
+    const isOwn = message.sender && message.sender.id === state.user.id;
+    bubble.className = `chat-message ${isOwn ? "own" : ""}`;
+    const text = document.createElement("div");
+    text.className = "chat-message-text";
+    text.textContent = message.text;
+    const meta = document.createElement("div");
+    meta.className = "chat-message-meta";
+    meta.textContent = `${message.sender ? message.sender.fullName : "Неизвестно"} · ${formatChatTime(message.createdAt)}`;
+    bubble.appendChild(text);
+    bubble.appendChild(meta);
+    container.appendChild(bubble);
+  });
+  container.scrollTop = container.scrollHeight;
+};
+
+const updateChatHeader = () => {
+  const titleEl = document.querySelector("[data-chat-title]");
+  const metaEl = document.querySelector("[data-chat-meta]");
+  const room = state.chatRooms.find((item) => item.id === state.currentChatRoomId);
+  const form = document.querySelector("[data-form='chat-message']");
+  if (form) {
+    const input = form.querySelector("input[name='message']");
+    const button = form.querySelector("button[type='submit']");
+    const disabled = !room;
+    if (input) input.disabled = disabled;
+    if (button) button.disabled = disabled;
+  }
+  if (!titleEl || !metaEl) return;
+  if (!room) {
+    titleEl.textContent = "Выберите чат";
+    metaEl.textContent = "";
+    return;
+  }
+  titleEl.textContent = getChatRoomTitle(room);
+  if (room.type === "general") {
+    metaEl.textContent = "Общий чат для всех пользователей";
+  } else {
+    const participants = (room.participants || [])
+      .map((participant) => participant.fullName)
+      .filter(Boolean)
+      .join(" · ");
+    metaEl.textContent = participants || "Личный чат";
+  }
+};
+
+const loadChatMessages = async (roomId) => {
+  if (!roomId) return;
+  const response = await fetchWithAuth(`/api/chats/rooms/${roomId}/messages`);
+  if (!response.ok) {
+    const data = await response.json();
+    toast(data.message || "Не удалось загрузить сообщения", "error");
+    return;
+  }
+  const data = await response.json();
+  state.chatMessages = data.messages || [];
+  state.currentChatRoomId = roomId;
+  updateChatHeader();
+  renderChatRooms();
+  renderChatMessages();
+};
+
+const loadChatOverview = async () => {
+  const response = await fetchWithAuth("/api/chats/rooms");
+  if (!response.ok) {
+    const data = await response.json();
+    toast(data.message || "Не удалось загрузить чаты", "error");
+    return;
+  }
+  const data = await response.json();
+  state.chatRooms = data.rooms || [];
+  state.chatContacts = data.contacts || [];
+  state.chatCanViewAll = Boolean(data.canViewAll);
+  renderChatContacts();
+  renderChatRooms();
+  const note = document.querySelector("[data-chat-admin-note]");
+  if (note) note.classList.toggle("hidden", !state.chatCanViewAll);
+  if (!state.currentChatRoomId && state.chatRooms.length) {
+    state.currentChatRoomId = state.chatRooms[0].id;
+  }
+  if (state.currentChatRoomId) {
+    loadChatMessages(state.currentChatRoomId);
+  } else {
+    updateChatHeader();
+    renderChatMessages();
+  }
+};
+
+const createChatRoom = async (userId) => {
+  if (!userId) {
+    toast("Выберите контакт", "error");
+    return;
+  }
+  const response = await fetchWithAuth("/api/chats/rooms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId })
+  });
+  if (response.offline) {
+    return;
+  }
+  if (!response.ok) {
+    const data = await response.json();
+    toast(data.message || "Не удалось создать чат", "error");
+    return;
+  }
+  const data = await response.json();
+  state.currentChatRoomId = data.roomId;
+  await loadChatOverview();
+};
+
+const sendChatMessage = async (text) => {
+  if (!state.currentChatRoomId) {
+    toast("Выберите чат", "error");
+    return;
+  }
+  const response = await fetchWithAuth(`/api/chats/rooms/${state.currentChatRoomId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  if (response.offline) {
+    return;
+  }
+  if (!response.ok) {
+    const data = await response.json();
+    toast(data.message || "Не удалось отправить сообщение", "error");
+    return;
+  }
+  const message = await response.json();
+  state.chatMessages.push(message);
+  renderChatMessages();
+  await loadChatOverview();
 };
 
 const loadCurrentUser = async () => {
@@ -1528,7 +1770,22 @@ document.addEventListener("click", async (event) => {
     if (view === "librarian-issue") {
       loadLibrarianRequests();
     }
+    if (view === "chats") {
+      setChatFocus(false);
+      loadChatOverview();
+    }
     closeMenu();
+    return;
+  }
+
+  const chatItem = event.target.closest("[data-chat-id]");
+  if (chatItem) {
+    const roomId = chatItem.dataset.chatId;
+    state.currentChatRoomId = roomId;
+    await loadChatMessages(roomId);
+    if (isMobileLayout()) {
+      setChatFocus(true);
+    }
     return;
   }
 
@@ -1990,6 +2247,16 @@ document.addEventListener("click", async (event) => {
     closeModal("role-form");
     loadUsers();
   }
+  if (name === "create-chat") {
+    const select = document.querySelector("[data-chat-contact]");
+    if (select) {
+      await createChatRoom(select.value);
+      select.value = "";
+    }
+  }
+  if (name === "chat-back") {
+    setChatFocus(false);
+  }
 });
 
 document.addEventListener("submit", async (event) => {
@@ -2001,6 +2268,14 @@ document.addEventListener("submit", async (event) => {
   }
   if (form.dataset.form === "register") {
     handlers.register(form);
+  }
+  if (form.dataset.form === "chat-message") {
+    const formData = new FormData(form);
+    const text = String(formData.get("message") || "").trim();
+    if (!text) return;
+    const input = form.querySelector("input[name='message']");
+    if (input) input.value = "";
+    await sendChatMessage(text);
   }
   if (form.dataset.form === "book") {
     const formData = new FormData(form);

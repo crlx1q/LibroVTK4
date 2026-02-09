@@ -168,6 +168,30 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<ChatOverview> fetchChatOverview() async {
+    final data = await _api.getJson('/api/chats/rooms');
+    return ChatOverview.fromJson(data);
+  }
+
+  Future<List<ChatMessage>> fetchChatMessages(String roomId) async {
+    final data = await _api.getJson('/api/chats/rooms/$roomId/messages');
+    final items = data['messages'] as List<dynamic>? ?? [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChatMessage.fromJson)
+        .toList();
+  }
+
+  Future<String> createChatRoom(String userId) async {
+    final data = await _api.postJson('/api/chats/rooms', {'userId': userId});
+    return data['roomId']?.toString() ?? '';
+  }
+
+  Future<ChatMessage> sendChatMessage(String roomId, String text) async {
+    final data = await _api.postJson('/api/chats/rooms/$roomId/messages', {'text': text});
+    return ChatMessage.fromJson(data);
+  }
+
   Future<Map<String, dynamic>> fetchCatalog({
     String search = '',
     String genre = '',

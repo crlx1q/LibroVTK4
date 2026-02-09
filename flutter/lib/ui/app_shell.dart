@@ -103,6 +103,7 @@ class _AppShellState extends State<AppShell> {
         NavItem('favorites', 'Избранное', Icons.favorite, () => const FavoritesScreen()),
         NavItem('student-requests', 'Запросы', Icons.notifications, () => const StudentRequestsScreen()),
         NavItem('student-qr', 'Мой QR', Icons.qr_code, () => const StudentQrScreen()),
+        NavItem('chats', 'Чаты', Icons.chat_bubble_outline, () => const ChatsScreen()),
       ];
     }
     if (role == 'librarian') {
@@ -111,12 +112,14 @@ class _AppShellState extends State<AppShell> {
         NavItem('librarian-issue', 'Выдача по QR', Icons.qr_code_scanner, () => const LibrarianIssueScreen()),
         NavItem('librarian-loans', 'Текущие выдачи', Icons.assignment, () => const LibrarianLoansScreen()),
         NavItem('librarian-requests', 'Запросы', Icons.notifications_active, () => const LibrarianRequestsScreen()),
+        NavItem('chats', 'Чаты', Icons.chat_bubble_outline, () => const ChatsScreen()),
       ];
     }
     return [
       NavItem('admin-users', 'Пользователи', Icons.people, () => const AdminUsersScreen()),
       NavItem('admin-stats', 'Статистика', Icons.bar_chart, () => const AdminStatsScreen()),
       NavItem('admin-loans', 'Все выдачи', Icons.layers, () => const AdminLoansScreen()),
+      NavItem('chats', 'Чаты', Icons.chat_bubble_outline, () => const ChatsScreen()),
     ];
   }
 }
